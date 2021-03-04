@@ -36,6 +36,8 @@ CFLAGS+=-DCURSES_GRAPHICS
 CFLAGS+=-DPANICLOG_FMT2
 CFLAGS+=-DTTY_TILES_ESCCODES
 CFLAGS+=-DDGAMELAUNCH
+CFLAGS+=-DDUMPLOG
+CFLAGS+=-DDUMPHTML
 
 # when building liblua.a, avoid warning that use of tmpnam() should be
 # replaced by mkstemp(); the lua code doesn't use nethack's config.h so
