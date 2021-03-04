@@ -13,7 +13,7 @@
 # Which users can use debug mode (aka wizard mode; accessed via '-D' command
 # line flag or OPTIONS=playmode:debug in the runtime options config file).
 # A value of * allows anyone to enter debugging mode.
-WIZARDS=*
+WIZARDS=root games
 
 # Which users can use explore mode (aka discover mode; accessed via '-X'
 # command line flag or OPTIONS=playmode:explore in runtime options file or
@@ -67,7 +67,8 @@ SUPPORT=Contact K2 or Tangles on freenode irc channel #hardfought
 # multi-user installs.
 # Do NOT keep this default value of 100, choose an arbitrary one, and don't
 # disclose it to your players.
-#SERVERSEED=100
+# Enabled, but this isn't the value on the actual server
+SERVERSEED=100
 
 # Uncomment the next line to enable some accessibility features such
 # as S_hero_override and S_pet_override symbols for screen readers
@@ -136,12 +137,12 @@ LLC_TURNS=3000
 #   %D current time, YYYYMMDDhhmmss format
 #   %n player name
 #   %N first character of player name
-DUMPLOGFILE=/tmp/xnethack.%n.%d.log
+DUMPLOGFILE=/dgldir/userdata/%N/%n/xnethack/dumplog/%t.xnh.txt
 
 # End of game HTML dump.
 # Only available if NetHack was compiled with DUMPHTML
 # Allows placeholders as above.
-DUMPHTMLFILE=/tmp/nethack.%n.%d.html
+DUMPHTMLFILE=/dgldir/userdata/%N/%n/xnethack/dumplog/%t.xnh.html
 
 # Number of bones file pools.
 # The pool you belong to is determined at game start. You will
