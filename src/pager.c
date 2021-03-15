@@ -636,9 +636,6 @@ add_mon_info(winid datawin, struct permonst * pm)
     boolean uniq = !!(gen & G_UNIQ);
     boolean hell = !!(gen & G_HELL);
     boolean nohell = !!(gen & G_NOHELL);
-    uchar mcon = pm->mconveys;
-    mcon &= ~(MR_ACID | MR_STONE); /* these don't do anything */
-    unsigned int mflag1 = pm->mflags1;
 
 #define ADDRESIST(condition, str)                       \
     if (condition) {                                    \
@@ -660,7 +657,14 @@ add_mon_info(winid datawin, struct permonst * pm)
     }
 #define MONPUTSTR(str) putstr(datawin, ATR_NONE, str)
 
-    Sprintf(buf, "Monster lookup for \"%s\":", pm->pmnames[NEUTRAL]);
+    /* differentiate the two forms of werecreatures */
+    Strcpy(buf2, "");
+    if (is_were(pm)) {
+        Sprintf(buf2, " (%s form)", pm->mlet == S_HUMAN ? "human" : "animal");
+    }
+
+    Snprintf(buf, BUFSZ, "Monster lookup for \"%s\"%s:", pm->pmnames[NEUTRAL],
+             buf2);
     putstr(datawin, ATR_BOLD, buf);
     MONPUTSTR("");
 
@@ -710,17 +714,39 @@ add_mon_info(winid datawin, struct permonst * pm)
 
     /* Corpse conveyances */
     buf[0] = '\0';
-    ADDMR(mcon, MR_FIRE, "fire");
-    ADDMR(mcon, MR_COLD, "cold");
-    ADDMR(mcon, MR_SLEEP, "sleep");
-    ADDMR(mcon, MR_DISINT, "disintegration");
-    ADDMR(mcon, MR_ELEC, "shock");
-    ADDMR(mcon, MR_POISON, "poison");
+    APPENDC(intrinsic_possible(FIRE_RES, pm), "fire");
+    APPENDC(intrinsic_possible(COLD_RES, pm), "cold");
+    APPENDC(intrinsic_possible(SHOCK_RES, pm), "shock");
+    APPENDC(intrinsic_possible(SLEEP_RES, pm), "sleep");
+    APPENDC(intrinsic_possible(POISON_RES, pm), "poison");
+    APPENDC(intrinsic_possible(DISINT_RES, pm), "disintegration");
+    /* acid and stone resistance aren't currently conveyable */
     if (*buf)
         Strcat(buf, " resistance");
-    ADDMR(mflag1, M1_TPORT, "teleportitis");
-    ADDMR(mflag1, M1_TPORT_CNTRL, "teleport control");
-    if (!(gen & G_NOCORPSE)) {
+    APPENDC(intrinsic_possible(TELEPORT, pm), "teleportation");
+    APPENDC(intrinsic_possible(TELEPORT_CONTROL, pm), "teleport control");
+    APPENDC(intrinsic_possible(TELEPAT, pm), "telepathy");
+    APPENDC(intrinsic_possible(INTRINSIC_GAIN_STR, pm), "strength");
+    APPENDC(intrinsic_possible(INTRINSIC_GAIN_EN, pm), "magic energy");
+    /* There are a bunch of things that happen in cpostfx (levels for wraiths,
+     * stunning for bats...) but only count the ones that actually behave like
+     * permanent intrinsic gains.
+     * If you find yourself listing multiple things here for the same effect,
+     * that may indicate the property should be added to psuedo_intrinsics. */
+    APPENDC(pm == &mons[PM_QUANTUM_MECHANIC], "speed or slowness");
+    APPENDC(pm == &mons[PM_MIND_FLAYER] || pm == &mons[PM_MASTER_MIND_FLAYER],
+            "intelligence");
+    if (is_were(pm)) {
+        /* Weres need a bit of special handling, since 1) you always get
+         * lycanthropy so "may convey" could imply the player might not contract
+         * it; 2) the animal forms are flagged as G_NOCORPSE, but still have a
+         * meaningless listed corpse nutrition value which shouldn't print. */
+        if (pm->mlet == S_HUMAN) {
+            Sprintf(buf2, "Provides %d nutrition when eaten.", pm->cnutrit);
+            MONPUTSTR(buf2);
+        }
+        MONPUTSTR("Corpse conveys lycanthropy.");
+    } else if (!(gen & G_NOCORPSE)) {
         Sprintf(buf2, "Provides %d nutrition when eaten.", pm->cnutrit);
         MONPUTSTR(buf2);
         if (*buf) {
@@ -728,7 +754,7 @@ add_mon_info(winid datawin, struct permonst * pm)
             MONPUTSTR(buf2);
         }
         else
-            MONPUTSTR("Corpse conveys nothing.");
+            MONPUTSTR("Corpse conveys no intrinsics.");
     }
     else
         MONPUTSTR("Leaves no corpse.");
@@ -1537,9 +1563,11 @@ checkfile(char *inp, struct permonst *pm, boolean user_typed_name,
              * "iron" from "iron golem" or something. */
             if (!lookat_mon) {
                 pm = (struct permonst *) 0; /* just to be safe */
-                int mndx = name_to_mon(dbase_str_with_material, (int *) 0);
-                if (mndx != NON_PM) {
-                    pm = &mons[mndx];
+                if (!object_not_monster(dbase_str_with_material)) {
+                    int mndx = name_to_mon(dbase_str_with_material, (int *) 0);
+                    if (mndx != NON_PM) {
+                        pm = &mons[mndx];
+                    }
                 }
             }
 
@@ -1609,6 +1637,12 @@ checkfile(char *inp, struct permonst *pm, boolean user_typed_name,
                      * "skeleton" and "skeleton key". */
                     else if (do_mon_lookup) {
                         add_mon_info(datawin, pm);
+                        if (is_were(pm)) {
+                            /* also do the alternate form */
+                            putstr(datawin, 0, "");
+                            add_mon_info(datawin,
+                                         &mons[counter_were(monsndx(pm))]);
+                        }
                         putstr(datawin, 0, "");
                     }
 

@@ -385,12 +385,16 @@ changes:
 - Thiefstones no longer teleport themselves along with a gold golem that they
   steal away, unless you are a gold golem rubbing it on your own hand, in which
   case it stays with you.
+- Thiefstones now can be used to teleport any gold item to their stash, not just
+  coins.
 - Revert some of version 3.0's monster letter and color changes:
   - Sea monsters moved back to ';'
   - Zruties reintroduced as 'z'
   - Lizards moved back to ':'
   - Leprechauns moved back to 'l'
   - Kop Sergeants/Lieutenants/Kaptains returned to blue/cyan/magenta
+- Mummy wrappings are no longer eligible for object materials and are always
+  cloth.
 
 ### Interface changes
 
@@ -455,6 +459,8 @@ changes:
 - More hallucinatory monsters, shirts, epitaphs, random engravings, rumors,
   hallucinatory gods, hallucinatory blasts, tin labels, weapon names, and
   taunts.
+- A number of new encyclopedia entries are added, mostly for things that vanilla
+  did not have an entry for.
 
 ### Architectural changes
 
