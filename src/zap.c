@@ -4237,12 +4237,13 @@ dobuzz(int type, int nd, xchar sx, xchar sy, int dx, int dy,
         }
 
         if (mon) {
-            int saved_mhp = mon->mhp; /* for print_mon_wounded() */
+            int saved_mhp;
             if (type == ZT_SPELL(ZT_FIRE))
                 break;
             if (type >= 0)
                 mon->mstrategy &= ~STRAT_WAITMASK;
  buzzmonst:
+            saved_mhp = mon->mhp; /* for print_mon_wounded() */
             g.notonhead = (mon->mx != g.bhitpos.x || mon->my != g.bhitpos.y);
             if (zap_hit(find_mac(mon), spell_type)) {
                 if (mon_reflects(mon, (char *) 0)) {
@@ -5421,6 +5422,7 @@ makewish(void)
     Strcpy(promptbuf, "For what do you wish");
     if (iflags.cmdassist && tries > 0)
         Strcat(promptbuf, " (enter 'help' for assistance)");
+    tries++;
     Strcat(promptbuf, "?");
     getlin(promptbuf, buf);
     (void) mungspaces(buf);
@@ -5432,11 +5434,18 @@ makewish(void)
         goto retry;
     }
     if (buf[0] == '\0') {
-        if (yn("Really forfeit this wish?") == 'y') {
+        if (yn("Really forfeit this wish?") == 'y' || tries >= 50
+            ) {
             Strcpy(buf, "nothing");
         }
-        else
+#ifdef HANGUPHANDLING
+        else if (g.program_state.done_hup) {
+            Strcpy(buf, "nothing");
+        }
+#endif
+        else {
             goto retry;
+        }
     }
     /*
      *  Note: if they wished for and got a non-object successfully,
@@ -5453,7 +5462,6 @@ makewish(void)
     }
     else if (!otmp) {
         pline("Nothing fitting that description exists in the game.");
-        tries++;
         goto retry;
     } else if (otmp == &nothing) {
         /* explicitly wished for "nothing", presumably attempting

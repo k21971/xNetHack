@@ -59,7 +59,7 @@ NHCFLAGS+=-DHACKDIR=\"$(HACKDIR)\"
 NHCFLAGS+=-DDEFAULT_WINDOW_SYS=\"$(WANT_DEFAULT)\" -DDLB
 NHCFLAGS+=-DSYSCF -DSYSCF_FILE=\"$(HACKDIR)/sysconf\" -DSECURE
 #NHCFLAGS+=-DTIMED_DELAY
-#NHCFLAGS+=-DDUMPLOG
+NHCFLAGS+=-DDUMPLOG
 #NHCFLAGS+=-DCONFIG_ERROR_SECURE=FALSE
 NHCFLAGS+=-DGREPPATH=\"/usr/bin/grep\"
 #NHCFLAGS+=-DCOMPRESS=\"/bin/gzip\" -DCOMPRESS_EXTENSION=\".gz\"
@@ -213,8 +213,8 @@ GAMEPERM = 0700
 VARFILEPERM = 0600
 VARDIRPERM = 0700
 ifdef ($(WANT_DEFAULT),X11)
-# install nethack.rc as ~/.nethackrc if no ~/.nethackrc exists
-PREINSTALL= cp -n win/X11/nethack.rc ~/.nethackrc || true
+# install nethack.rc as ~/.xnethackrc if no ~/.xnethackrc exists
+PREINSTALL= cp -n win/X11/nethack.rc ~/.xnethackrc || true
 endif	# WANT_DEFAULT X11
 
 POSTINSTALL+= sys/unix/hints/macosx.sh editsysconf sys/unix/sysconf $(HACKDIR)/sysconf; \
