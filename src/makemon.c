@@ -326,6 +326,9 @@ m_initweap(register struct monst *mtmp)
             otmp->cursed = FALSE;
             otmp->oerodeproof = TRUE;
             otmp->spe = 0;
+            /* non-archons might have a stereotypical harp */
+            if (!rn2(20) && !is_lord(ptr))
+                (void) mongets(mtmp, rn2(5) ? HARP : MAGIC_HARP);
         }
         break;
 
@@ -341,6 +344,7 @@ m_initweap(register struct monst *mtmp)
             case 2:
                 otmp = mongets(mtmp, rn2(4) ? FLINT : ROCK);
                 otmp->quan = 4 + rnd(6);
+                otmp->owt = weight(otmp);
                 (void) mongets(mtmp, SLING);
                 break;
             }
@@ -354,6 +358,11 @@ m_initweap(register struct monst *mtmp)
             while (!rn2(3))
                 (void) mongets(mtmp, APPLE + rn2(CARROT - APPLE));
         } else if (is_dwarf(ptr)) {
+            if (!rn2(In_mines(&u.uz) ? 40 : 8)) {
+                otmp = mongets(mtmp, POT_BOOZE);
+                otmp->quan = rnd(3);
+                otmp->owt = weight(otmp);
+            }
             if (rn2(7))
                 (void) mongets(mtmp, DWARVISH_CLOAK);
             if (rn2(7))

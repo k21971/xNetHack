@@ -3,10 +3,10 @@
 This is a major version of xNetHack. It is based directly on xNetHack 5.1, and
 is a fork off the vanilla NetHack 3.7.0 development version release.
 
-The most recent vanilla commit incorporated into xNetHack is d564fa8. Note that
-this contains some major changes including new monsters, new objects, themed
-rooms, and other things *not* documented in this file. See doc/fixes37.0 for
-the devteam's changes.
+The last vanilla commit incorporated into xNetHack 6.0 prior to its release was
+d6d42f5. Note that this contains some major changes including new monsters, new
+objects, themed rooms, and other things *not* documented in this file. See
+doc/fixes37.0 for the devteam's changes.
 
 The xNetHack page at the NetHackWiki, https://nethackwiki.com/wiki/XNetHack,
 attempts to describe these changes in a way that's better formatted and more
@@ -50,9 +50,9 @@ changes:
 - Genetic engineers (added in vanilla 3.7.0) are in the U monster class like
   quantum mechanics are.
 - Attempting to use a crystal ball while hallucinating will paralyze you for d2
-  turns if the ball is uncharged or d4 turns if it is charged. (This is the
-  only part of the vanilla 3.7.0 crystal ball overhaul that has been included
-  in xNetHack.)
+  turns if the ball is uncharged or d4 turns if it is charged. (This and
+  crystal balls detecting dungeon features now are the only parts of the vanilla
+  3.7.0 crystal ball overhaul that have been included in xNetHack.)
 - Monsters prefer to wear an amulet of life saving or reflection rather than an
   amulet of ESP or guarding.
 - Metal armor won't provide less than 1 AC (not counting enchantments) if it

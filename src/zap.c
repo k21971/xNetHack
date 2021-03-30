@@ -1149,6 +1149,10 @@ cancel_item(struct obj *obj)
             }
             break;
         }
+        if (obj->otyp == THIEFSTONE) {
+            /* this is still just -1, but better to use the constant for it */
+            obj->keyed_ledger = THIEFSTONE_LEDGER_CANCELLED;
+        }
     }
     /* cancelling a troll's corpse prevents it from reviving (on its own;
        does not affect undead turning induced revival) */
@@ -5434,8 +5438,7 @@ makewish(void)
         goto retry;
     }
     if (buf[0] == '\0') {
-        if (yn("Really forfeit this wish?") == 'y' || tries >= 50
-            ) {
+        if (wizard || yn("Really forfeit this wish?") == 'y' || tries >= 50) {
             Strcpy(buf, "nothing");
         }
 #ifdef HANGUPHANDLING
