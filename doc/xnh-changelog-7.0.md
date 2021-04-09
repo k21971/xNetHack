@@ -26,6 +26,9 @@ changes:
   which is magic 20% of the time.
 - 1/40 of dwarves in the Mines and 1/8 of dwarves outside the Mines generate
   with d3 booze potions.
+- French fried and deep fried tins give more nutrition (80 and 100
+  respectively.)
+- New random tin flavor "stale", giving only 25 nutrition.
 
 ### Interface changes
 
@@ -35,6 +38,8 @@ changes:
   Knights or high-level Monks or Healers.
 - The "You hear someone cursing shoplifters" message uses a shopkeeper's real
   name if you have visited their shop previously.
+- Monks will stop seeing "You feel guilty" messages after eating meat enough
+  times.
 
 ### Architectural changes
 

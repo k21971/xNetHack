@@ -304,6 +304,7 @@ dosounds(void)
         return;
     }
     if (g.level.bonesinfo && !rn2(300)) {
+        struct cemetery *bp;
         for (bp = g.level.bonesinfo; bp; bp = bp->next) {
             if (!bp->bonesknown) {
                 /* only give bones noises if there are still undiscovered bones
