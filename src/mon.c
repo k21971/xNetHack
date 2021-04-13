@@ -660,6 +660,12 @@ make_corpse(register struct monst* mtmp, unsigned int corpseflags)
         }
         free_mgivenname(mtmp);
         return obj;
+    case PM_SKELETON:
+        if (!rn2(50)) {
+            otmp = mksobj_at(SKELETON_KEY, x, y, TRUE, FALSE);
+            set_material(otmp, BONE);
+        }
+        break;
     default:
  default_1:
         if (g.mvitals[mndx].mvflags & G_NOCORPSE) {
@@ -2083,8 +2089,19 @@ mm_displacement(
         return 0;
     }
 
-    /* riders can move anything; others, same size or smaller only */
-    if (!is_rider(pa) && pa->msize < pd->msize) {
+    /* riders can move anything */
+    if (is_rider(pa)) {
+        return ALLOW_MDISP;
+    }
+
+    /* a smaller monster can't displace a bigger one */
+    if (pa->msize < pd->msize) {
+        return 0;
+    }
+
+    /* certain monsters are undisplaceable -- this comes after the Rider check
+     * so that they're not blocked by priests on Astral */
+    if (mundisplaceable(mdef)) {
         return 0;
     }
 
@@ -3749,24 +3766,32 @@ setmangry(struct monst* mtmp, boolean via_attack)
 
 /* wake up a monster, possibly making it angry in the process */
 void
-wakeup(struct monst* mtmp, boolean via_attack)
+wakeup(struct monst* mtmp, boolean via_attack, boolean reveal_hidden)
 {
+    if (DEADMONSTER(mtmp)) {
+        return;
+    }
     boolean was_sleeping = mtmp->msleeping;
     mtmp->msleeping = 0;
-    if (M_AP_TYPE(mtmp) != M_AP_NOTHING) {
-        /* mimics come out of hiding, but disguised Wizard doesn't
-           have to lose his disguise */
-        if (M_AP_TYPE(mtmp) != M_AP_MONSTER)
-            seemimic(mtmp);
-    } else if (g.context.forcefight && !g.context.mon_moving
-               && mtmp->mundetected) {
-        mtmp->mundetected = 0;
-        newsym(mtmp->mx, mtmp->my);
+    if (reveal_hidden) {
+        if (M_AP_TYPE(mtmp) != M_AP_NOTHING) {
+            /* mimics come out of hiding, but disguised Wizard doesn't
+                have to lose his disguise */
+            if (M_AP_TYPE(mtmp) != M_AP_MONSTER)
+                seemimic(mtmp);
+        } else if (g.context.forcefight && !g.context.mon_moving
+                   && mtmp->mundetected) {
+            mtmp->mundetected = 0;
+            newsym(mtmp->mx, mtmp->my);
+        }
+        finish_meating(mtmp);
     }
-    if (was_sleeping && canseemon(mtmp)) {
+    if (was_sleeping && canseemon(mtmp)
+        /* don't print message for still-disguised monster */
+        && (M_AP_TYPE(mtmp) == M_AP_NOTHING
+            || M_AP_TYPE(mtmp) == M_AP_MONSTER)) {
         pline("%s wakes up.", Monnam(mtmp));
     }
-    finish_meating(mtmp);
     if (via_attack)
         setmangry(mtmp, TRUE);
 }
@@ -3790,7 +3815,7 @@ wake_nearto(int x, int y, int distance)
         if (distance == 0 || dist2(mtmp->mx, mtmp->my, x, y) < distance) {
             /* sleep for N turns uses mtmp->mfrozen, but so does paralysis
                so we leave mfrozen monsters alone */
-            wakeup(mtmp, FALSE); /* wake indeterminate sleep */
+            wakeup(mtmp, FALSE, FALSE); /* wake indeterminate sleep */
             if (!(mtmp->data->geno & G_UNIQ))
                 mtmp->mstrategy &= ~STRAT_WAITMASK; /* wake 'meditation' */
             if (g.context.mon_moving)
