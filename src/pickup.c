@@ -2363,7 +2363,8 @@ exchange_objects_with_mon(struct monst *mtmp, boolean taking)
     }
 
     n = query_objlist(qstr, taking ? &mtmp->minvent : &g.invent,
-                      INVORDER_SORT, &pick_list, PICK_ANY, allow_all);
+                      INVORDER_SORT | (taking ? 0 : USE_INVLET),
+                      &pick_list, PICK_ANY, allow_all);
 
     for (i = 0; i < n; ++i) {
         struct obj* otmp = pick_list[i].item.a_obj;
@@ -2760,6 +2761,12 @@ in_container(struct obj *obj)
             addtobill(obj, FALSE, FALSE, TRUE);
         if (obj->otyp == BAG_OF_HOLDING) /* one bag of holding into another */
             do_boh_explosion(obj, (obj->where == OBJ_FLOOR));
+        if (obj->otyp == WAN_CANCELLATION) {
+            learnwand(obj);
+        }
+        makeknown(BAG_OF_HOLDING);
+        more_experienced(20, 0); /* Well, now you know not to do that again. */
+        newexplevel();
         obfree(obj, (struct obj *) 0);
 
         livelog_printf(LL_ACHIEVE, "just blew up %s bag of holding", uhis());

@@ -30,6 +30,9 @@ changes:
   respectively.)
 - New random tin flavor "stale", giving only 25 nutrition.
 - Skeletons rarely drop bone skeleton keys.
+- Blowing up a bag of holding gives some experience points, identifies the bag
+  of holding, and identifies the wand of cancellation if that is the cause of
+  the explosion.
 
 ### Interface changes
 
@@ -41,6 +44,11 @@ changes:
   name if you have visited their shop previously.
 - Monks will stop seeing "You feel guilty" messages after eating meat enough
   times.
+- The levels with the stairs to the Mines, Sokoban, and Vlad's Tower have
+  special ambient level sounds. The Sokoban and Vlad ones only persist until you
+  have finished the first level of Sokoban and killed Vlad, respectively.
 
 ### Architectural changes
 
+- Add a function sokoban_solved() which determines whether a given Sokoban level
+  is solved.
