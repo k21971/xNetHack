@@ -33,6 +33,10 @@ changes:
 - Blowing up a bag of holding gives some experience points, identifies the bag
   of holding, and identifies the wand of cancellation if that is the cause of
   the explosion.
+- Ghosts will not make themselves uninvisible in an attempt to frighten you if
+  you are already paralyzed.
+- Elven ring mail, in its default copper form, provides 2 AC, and provides 4 AC
+  if made of mithril.
 
 ### Interface changes
 
@@ -47,6 +51,8 @@ changes:
 - The levels with the stairs to the Mines, Sokoban, and Vlad's Tower have
   special ambient level sounds. The Sokoban and Vlad ones only persist until you
   have finished the first level of Sokoban and killed Vlad, respectively.
+- Swap the chaotic and unaligned altar colors to be in line with vanilla:
+  chaotic is now black and unaligned red.
 
 ### Architectural changes
 

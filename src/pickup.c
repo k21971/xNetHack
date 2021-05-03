@@ -2341,7 +2341,7 @@ reverse_loot(void)
 static int
 exchange_objects_with_mon(struct monst *mtmp, boolean taking)
 {
-    int i, n, transferred = 0;
+    int i, n, transferred = 0, time_taken = 1;
     menu_item *pick_list;
     const char *qstr = taking ? "Take what?" : "Give what?";
 
@@ -2378,13 +2378,10 @@ exchange_objects_with_mon(struct monst *mtmp, boolean taking)
 
         /* Clear inapplicable wornmask bits */
         unwornmask &= ~(W_ART | W_ARTI | W_QUIVER);
-        if (!taking || !u.twoweap) {
-            unwornmask &= ~W_SWAPWEP;
-        }
 
         if (!taking) {
             int carryamt;
-            if ((unwornmask & W_WEAPONS) && otmp->cursed) {
+            if (welded(otmp)) {
                 weldmsg(otmp);
                 continue;
             }
@@ -2393,19 +2390,26 @@ exchange_objects_with_mon(struct monst *mtmp, boolean taking)
                 continue;
             }
             if (!mindless(mtmp->data) && mtmp_would_ston) {
-                pline("%s refuses to take %s.", Monnam(mtmp), yname(otmp));
+                pline("%s refuses to take %s%s.", Monnam(mtmp),
+                      maxquan < otmp->quan ? "any of " : "", yname(otmp));
                 continue;
             }
+            if (otmp == uball || otmp == uchain) {
+                /* you can't give a monster your ball & chain, because it
+                 * causes problems elsewhere... */
+                pline("%s shackled to your %s and cannot be given away.",
+                      Tobjnam(otmp, "are"), body_part(LEG));
+                continue;
+            } 
             carryamt = can_carry(mtmp, otmp);
-            if (nohands(mtmp->data) && mtmp->minvent) {
-                /* this isn't a hard and fast rule, but dog_invent in practice
-                 * doesn't let monsters carry around multiple items. */
+            if (nohands(mtmp->data) && droppables(mtmp)) {
                 carryamt = 0;
             }
             if (carryamt == 0) {
                 /* note: this includes both "can't carry" and "won't carry", but
                  * doesn't distinguish them */
-                pline("%s can't carry %s.", Monnam(mtmp), yname(otmp));
+                pline("%s can't carry %s%s.", Monnam(mtmp),
+                      maxquan < otmp->quan ? "any of " : "", yname(otmp));
                 /* debatable whether to continue or break here; if the player
                  * overloads the monster with too many items, breaking would be
                  * preferable, but if they just can't take this one otmp for
@@ -2413,13 +2417,18 @@ exchange_objects_with_mon(struct monst *mtmp, boolean taking)
                  * be seen which is the more common scenario. */
                 continue;
             }
-            else if (carryamt < otmp->quan) {
-                maxquan = min(maxquan, carryamt);
+            else if (carryamt < maxquan) {
+                pline("%s can only carry %s of %s.", Monnam(mtmp),
+                      carryamt > 1 ? "some" : "one", yname(otmp));
+                maxquan = carryamt;
             }
             if (maxquan < otmp->quan) {
                 otmp = splitobj(otmp, maxquan);
             }
             pline("You give %s %s.", mon_nam(mtmp), yname(otmp));
+            if (otmp->owornmask) {
+                setnotworn(otmp); /* reset quivered, wielded, etc, status */
+            }
             obj_extract_self(otmp);
             if (add_to_minv(mtmp, otmp)) {
                 otmp = (struct obj *) 0; /* merged with something in minvent */
@@ -2431,7 +2440,8 @@ exchange_objects_with_mon(struct monst *mtmp, boolean taking)
         }
         else {
             /* cursed weapons, armor, accessories, etc treated the same */
-            if (unwornmask && otmp->cursed) {
+            if ((otmp->cursed && (unwornmask & ~W_WEAPONS)) 
+                || mwelded(otmp)) {
                 pline("%s won't come off!", Yname2(otmp));
                 otmp->bknown = 1;
                 continue;
@@ -2443,15 +2453,29 @@ exchange_objects_with_mon(struct monst *mtmp, boolean taking)
                     /* extra delay for removing a cloak */
                     m_delay += 2;
                 }
-                pline("%s %s %s %s.", Monnam(mtmp),
-                      m_delay > 1 ? "begins removing" : "removes",
-                      mhis(mtmp), xname(otmp));
+                if ((unwornmask & W_SADDLE) != 0) {
+                    You("remove %s from %s.", the(xname(otmp)),
+                        x_monnam(mtmp, ARTICLE_THE, (char *) 0,
+                                 SUPPRESS_SADDLE, FALSE));
+                    /* unstrapping a saddle takes additional time */
+                    time_taken += rn2(3);
+                }
+                else {
+                    pline("%s %s %s %s.", Monnam(mtmp),
+                          m_delay > 1 ? "begins removing" : "removes",
+                          mhis(mtmp), xname(otmp));
+                }
                 mtmp->mfrozen = m_delay;
                 /* unwear the item now */
                 update_mon_intrinsics(mtmp, otmp, FALSE, FALSE);
-                otmp->owornmask = 0;
                 if (mtmp->mfrozen) { /* might be 0 */
                     mtmp->mcanmove = 0;
+                    otmp->owornmask = 0L;
+                    /* normally extract_from_minvent handles this stuff, but
+                     * since we are setting owornmask to 0 now we have to
+                     * do it here. */
+                    otmp->owt = weight(otmp); /* reset armor weight */
+                    mtmp->misc_worn_check &= ~unwornmask;
                     /* monster is now occupied, won't hand over other things */
                     break;
                 }
@@ -2468,9 +2492,7 @@ exchange_objects_with_mon(struct monst *mtmp, boolean taking)
             if (maxquan < otmp->quan) {
                 otmp = splitobj(otmp, maxquan);
             }
-            else {
-                extract_from_minvent(mtmp, otmp, TRUE, TRUE);
-            }
+            extract_from_minvent(mtmp, otmp, TRUE, TRUE);
             addtobill(otmp, FALSE, FALSE, FALSE);
             otmp = hold_another_object(otmp, "You take, but drop, %s.",
                                          doname(otmp), "You take: ");
@@ -2493,7 +2515,8 @@ exchange_objects_with_mon(struct monst *mtmp, boolean taking)
          * some and now have a different option. Reassess next turn and see. */
         check_gear_next_turn(mtmp);
     }
-    return (n > 0 ? 1 : 0);
+    /* time_taken is 1 for normal item(s), rnd(3) if you removed a saddle */
+    return (n > 0 ? time_taken : 0); 
 }
 
 /* loot_mon() returns amount of time passed. */
@@ -2502,45 +2525,8 @@ loot_mon(struct monst *mtmp, int *passed_info, boolean *mon_interact)
 {
     int c = -1;
     int timepassed = 0;
-    struct obj *otmp;
     char qbuf[QBUFSZ];
 
-    /* 3.3.1 introduced the ability to remove saddle from a steed.
-     *  *passed_info is set to TRUE if a loot query was given, though it also
-     *  does double duty where it actually holds information from the caller, in
-     *  the case of picking items up from an engulfer.
-     *  *prev_loot is set to TRUE if something was actually acquired in here.
-     */
-    if (mtmp && mtmp != u.usteed && (otmp = which_armor(mtmp, W_SADDLE))) {
-        if (passed_info)
-            *passed_info = 1;
-        Sprintf(qbuf, "Do you want to remove the saddle from %s?",
-                x_monnam(mtmp, ARTICLE_THE, (char *) 0,
-                         SUPPRESS_SADDLE, FALSE));
-        if ((c = yn_function(qbuf, ynqchars, 'n')) == 'y') {
-            if (nolimbs(g.youmonst.data)) {
-                You_cant("do that without limbs."); /* not body_part(HAND) */
-                return 0;
-            }
-            if (otmp->cursed) {
-                You("can't.  The saddle seems to be stuck to %s.",
-                    x_monnam(mtmp, ARTICLE_THE, (char *) 0,
-                             SUPPRESS_SADDLE, FALSE));
-                /* the attempt costs you time */
-                return 1;
-            }
-            extract_from_minvent(mtmp, otmp, TRUE, FALSE);
-            otmp = hold_another_object(otmp, "You drop %s!", doname(otmp),
-                                       (const char *) 0);
-            nhUse(otmp);
-            timepassed = rnd(3); /* note: this doesn't actually take extra time,
-                                    rhack() just treats it like 1 */
-            if (mon_interact)
-                *mon_interact = 1;
-        } else if (c == 'q') {
-            return 0;
-        }
-    }
     /* 3.4.0 introduced ability to pick things up from swallower's stomach */
     if (u.uswallow) {
         int count = passed_info ? *passed_info : 0;
