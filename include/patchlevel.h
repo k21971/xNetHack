@@ -50,7 +50,7 @@
  * PP = patch level, ee = edit level, L = literal suffix "L",
  * with all four numbers specified as two hexadecimal digits.
  */
-#define VERSION_COMPATIBILITY 0x06010001L
+#define VERSION_COMPATIBILITY 0x06010000L
 
 /*
  *  xNetHack changes are not documented here; see the changelog and wiki for
