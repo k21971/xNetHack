@@ -3,7 +3,7 @@
 This is a major version of xNetHack. It is based directly on xNetHack 6.0, and
 is a fork off the vanilla NetHack 3.7.0 development version release.
 
-The most recent vanilla commit incorporated into xNetHack is d6d42f5. Note that
+The most recent vanilla commit incorporated into xNetHack is dd6ed502. Note that
 because 3.7.0 is still in development status, xNetHack may contain major changes
 including new monsters, new objects, themed rooms, and other things *not*
 documented in this file or other xNetHack changelogs. See doc/fixes37.0 for the
@@ -37,6 +37,71 @@ changes:
   you are already paralyzed.
 - Elven ring mail, in its default copper form, provides 2 AC, and provides 4 AC
   if made of mithril.
+- Covetous monsters will attempt to equip the item they covet if it comes into
+  their possession and it is equippable.
+- Itlachiayaque replaces the Orb of Detection as the Archeologist quest
+  artifact. It is a gold shield of reflection that confers fire resistance
+  and warning when carried and reflection when worn. Archeologists do not get
+  a spellcasting penalty for wearing it. When invoked, it either summons a
+  stinking cloud, identical to a scroll of the same beatitude, or you can gaze
+  into it for the same effect as a crystal ball.
+- Monsters can throw potions of oil as an offensive item. Typically they light
+  them so that they explode on contact, but a confused monster may forget to do
+  this.
+- If you are hit by an unlit potion of oil, you get covered in oil and your
+  fingers become slippery.
+- Schliemann replaces the Minion of Huhetotl as the Archeologist quest nemesis.
+  He is a human, and unlike other quest nemeses does not warp. He carries a
+  pick-axe and a number of potions of oil to throw at you.
+- The Archeologist quest has received a full overhaul:
+  - The home, locate, goal, and filler levels are all replaced. The lower filler
+    levels use an all-new level generator implemented entirely in Lua.
+  - The story of the quest is changed. It's now a bit like a mash-up of Raiders
+    of the Lost Ark and National Treasure: the location of Itlachiayaque has
+    just been uncovered, and Schliemann and his better equipped team are trying
+    to get it first! Unlike the player, they have no qualms about being ruthless
+    and destructive in their eagerness to get there first.
+  - Enemy-wise, the quest is a lot more mummy-heavy than it used to be, with
+    human mummies in particular appearing a lot in the tomb in the second half
+    of the quest.
+  - Much of the quest loot consists of gold or other precious metal variants of
+    regular items. (To this end, gold is now a valid material on normally-wooden
+    items.)
+  - Level sounds of explosions appear on the lower floors of the quest as you
+    and Schliemann's team converge on Itlachiayaque.
+  - Monster generation probabilities in the quest are now 55% human mummy, 14%
+    random M, 17% random S, 14% random monster. (Not exact percentages.)
+- Mummies now have a touch attack that inflicts withering, a new status effect.
+  Withering has the following effects:
+  - Every turn, a withering creature loses 1 or 2 hit points (0 or 1 if it
+    regenerates), until the withering times out.
+  - Withering creatures do not regenerate HP like normal, though items such as
+    healing potions work the same to restore HP.
+  - Creatures that die to withering attacks do not leave a corpse.
+  - When the player is withering, a "Wither" status is shown on the status line.
+    Status hilites can be used to configure this status like normal. It's also
+    covered under 'major-troubles' in status hilites.
+  - Prayer can fix withering, but unicorn horns cannot. Life-saving also does
+    not cure it.
+  - The various mummies inflict increasingly higher durations of withering as
+    they increase in difficulty.
+  - Certain chests are trapped in such a way that they spawn a number of mummies
+    around you when triggered.
+- You can #rub silver items while withering to reduce the remaining duration:
+  - The amount of withering duration cancelled generally equals the total weight
+    of the rubbed items. E.g. a weight-11 silver dagger will shorten withering
+    by up to 11 turns.
+  - This corrodes and/or destroys the silver items in the process. Each
+    application of the silver causes 1 level of corrosion per 1/4 of the
+    object's weight. If it goes past thoroughly corroded it disintegrates.
+  - Items that are not subject to corrosion (e.g. the silver wand/ring) just get
+    destroyed, regardless of how much withering they stopped.
+  - Erodeproof silver and artifacts are not protected from corrosion or
+    destruction.
+  - The Bell of Opening cannot corrode or be destroyed, so using it to fix
+    withering instead uses up its charges, and it won't work when out of
+    charges.
+- It is impossible to destroy a metal box or chest by forcing it.
 
 ### Interface changes
 
@@ -56,5 +121,17 @@ changes:
 
 ### Architectural changes
 
-- Add a function sokoban_solved() which determines whether a given Sokoban level
-  is solved.
+- New functions:
+  - sokoban_solved()
+  - arti_starts_with_the()
+- Implement covetous_nonwarper(), a macro that controls whether a covetous
+  monster should not warp or use the other code in tactics(), and should behave
+  like a normal monster.
+- Allow specification of "waiting" on monsters in level file, which makes them
+  wait until you're in visual range before moving.
+- Refactor mktrap()'s mazeflag argument into a general flags field, and add a
+  flag that disables generating a spider on a web. Also allow specification of
+  "no_spider_on_web" in a table-form des.trap() command that passes this flag.
+- New struct monst fields mwither (byte) and mwither_from_u (bit).
+- Artifacts that warn against a monster class are properly supported with a new
+  g.context.warntype.obj_mlet field.

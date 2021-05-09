@@ -378,6 +378,13 @@ look_at_monster(char *buf,
                                             : (mW & M2_DEMON & m2) ? "demon"
                                               : pmname(mtmp->data, Mgender(mtmp)));
 
+                    if (g.context.warntype.obj_mlet == mtmp->data->mlet) {
+                        /* Note: relying on .explain will be wonky if an
+                         * artifact is ever added that warns against some
+                         * monster class explained like "foo or bar" */
+                         whom = def_monsyms[(unsigned short) mtmp->data->mlet].explain;
+                    }
+
                     Sprintf(eos(monbuf), "warned of %s", makeplural(whom));
                 }
                 how_seen &= ~MONSEEN_WARNMON;
@@ -618,6 +625,7 @@ static const char * damagetypes[] = {
     "steal intrinsic",
     "polymorph",
     "create pit",
+    "withering",
     "clerical",
     "arcane",
     "random breath",
@@ -1219,6 +1227,7 @@ add_obj_info(winid datawin, short otyp)
                     case HALF_PHDAM:
                     case REGENERATION:
                     case ENERGY_REGENERATION:
+                    case WITHERING:
                     case PROTECTION:
                     case PROT_FROM_SHAPE_CHANGERS:
                     case POLYMORPH_CONTROL:

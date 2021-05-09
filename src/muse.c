@@ -1,4 +1,4 @@
-/* NetHack 3.7	muse.c	$NHDT-Date: 1607734843 2020/12/12 01:00:43 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.136 $ */
+/* NetHack 3.7	muse.c	$NHDT-Date: 1620329779 2021/05/06 19:36:19 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.143 $ */
 /*      Copyright (C) 1990 by Ken Arromdee                         */
 /* NetHack may be freely redistributed.  See license for details.  */
 
@@ -163,7 +163,7 @@ mzapwand(
 
         You_hear("a %s zap.", (distu(mtmp->mx, mtmp->my) <= range * range)
                                  ? "nearby" : "distant");
-        otmp->known = 0;
+        unknow_object(otmp); /* hero loses info when unseen obj is used */
     } else if (self) {
         pline("%s with %s!",
               monverbself(mtmp, Monnam(mtmp), "zap", (char *) 0),
@@ -191,7 +191,7 @@ mplayhorn(
         You_hear("a horn being played %s.",
                  (distu(mtmp->mx, mtmp->my) <= range * range)
                  ? "nearby" : "in the distance");
-        otmp->known = 0; /* hero doesn't know how many charges are left */
+        unknow_object(otmp); /* hero loses info when unseen obj is used */
     } else if (self) {
         otmp->dknown = 1;
         objnamp = xname(otmp);
@@ -290,6 +290,7 @@ mquaffmsg(struct monst* mtmp, struct obj* otmp)
 #define MUSE_LIZARD_CORPSE 19
 #define MUSE_MAGIC_FLUTE 20
 #define MUSE_WAN_UNDEAD_TURNING 21 /* also an offensive item */
+#define MUSE_POT_OIL 22
 /*
 #define MUSE_INNATE_TPT 9999
  * We cannot use this.  Since monsters get unlimited teleportation, if they
@@ -1268,6 +1269,16 @@ find_offensive(struct monst* mtmp)
             g.m.offensive = obj;
             g.m.has_offense = MUSE_POT_ACID;
         }
+        nomore(MUSE_POT_OIL);
+        if (obj->otyp == POT_OIL
+            /* don't throw oil if point-blank AND mtmp is low on HP AND mtmp is
+             * not fire resistant */
+            && (dist2(mtmp->mx, mtmp->my, mtmp->mux, mtmp->muy) > 2
+                || mtmp->mhp > 10
+                || resists_fire(mtmp))) {
+            g.m.offensive = obj;
+            g.m.has_offense = MUSE_POT_OIL;
+        }
         nomore(MUSE_MAGIC_FLUTE);
         if (obj->otyp == MAGIC_FLUTE && !u.usleep && !rn2(3)
             && obj->spe > 0 && g.multi >= 0) {
@@ -1585,8 +1596,7 @@ use_offensive(struct monst* mtmp)
         /* don't use monster fields after killing it */
         boolean confused = (mtmp->mconf ? TRUE : FALSE);
         int mmx = mtmp->mx, mmy = mtmp->my;
-        boolean is_cursed = otmp->cursed;
-        boolean is_blessed = otmp->blessed;
+        boolean is_cursed = otmp->cursed, is_blessed = otmp->blessed;
 
         mreadmsg(mtmp, otmp);
         /* Identify the scroll */
@@ -1605,14 +1615,17 @@ use_offensive(struct monst* mtmp)
         }
         m_useup(mtmp, otmp); /* otmp now gone */
 
+        /* could be fatal to monster, so use up the scroll before
+           there's a chance that monster's inventory will be dropped */
+        m_useup(mtmp, otmp);
+
         /* Loop through the surrounding squares */
         for (x = mmx - 1; x <= mmx + 1; x++) {
             for (y = mmy - 1; y <= mmy + 1; y++) {
                 /* Is this a suitable spot? */
                 if (isok(x, y) && !closed_door(x, y)
                     && !IS_ROCK(levl[x][y].typ) && !IS_AIR(levl[x][y].typ)
-                    && (((x == mmx) && (y == mmy)) ? !is_blessed
-                                                   : !is_cursed)
+                    && (((x == mmx) && (y == mmy)) ? !is_blessed : !is_cursed)
                     && (x != u.ux || y != u.uy)) {
                     (void) drop_boulder_on_monster(x, y, confused, FALSE);
                 }
@@ -1624,7 +1637,7 @@ use_offensive(struct monst* mtmp)
         }
 
         return (DEADMONSTER(mtmp)) ? 1 : 2;
-    }
+    } /* case MUSE_SCR_EARTH */
 #if 0
     case MUSE_SCR_FIRE: {
         boolean vis = cansee(mtmp->mx, mtmp->my);
@@ -1680,19 +1693,33 @@ use_offensive(struct monst* mtmp)
     case MUSE_POT_CONFUSION:
     case MUSE_POT_SLEEPING:
     case MUSE_POT_ACID:
+    case MUSE_POT_OIL: {
         /* Note: this setting of dknown doesn't suffice.  A monster
          * which is out of sight might throw and it hits something _in_
          * sight, a problem not existing with wands because wand rays
          * are not objects.  Also set dknown in mthrowu.c.
          */
+        boolean isoil = (otmp->otyp == POT_OIL);
+        int origquan = otmp->quan;
         if (cansee(mtmp->mx, mtmp->my)) {
             otmp->dknown = 1;
             pline("%s hurls %s!", Monnam(mtmp), singular(otmp, doname));
         }
+        if (isoil && !otmp->lamplit && (!mtmp->mconf || rn2(3))) {
+            /* A monster throwing oil probably wants it to explode; assume they
+             * lit it just before throwing for simplicity;
+             * a confused monster might forget to light it */
+            begin_burn(otmp, FALSE);
+        }
         m_throw(mtmp, mtmp->mx, mtmp->my, sgn(mtmp->mux - mtmp->mx),
                 sgn(mtmp->muy - mtmp->my),
                 distmin(mtmp->mx, mtmp->my, mtmp->mux, mtmp->muy), otmp);
+        if (isoil && origquan > 1 && otmp->lamplit) {
+            /* origquan > 1: otmp is still valid */
+            end_burn(otmp, TRUE);
+        }
         return 2;
+    }
     case 0:
         return 0; /* i.e. an exploded wand */
     default:
@@ -1740,7 +1767,7 @@ rnd_offensive_item(struct monst* mtmp)
     case 9:
         return WAN_SLEEP;
     case 10:
-        return WAN_FIRE;
+        return rn2(30) ? WAN_FIRE : POT_OIL;
     case 11:
         return WAN_COLD;
     case 12:
@@ -1760,6 +1787,7 @@ rnd_offensive_item(struct monst* mtmp)
 #define MUSE_BULLWHIP 8
 #define MUSE_POT_POLYMORPH 9
 #define MUSE_BAG 10
+#define MUSE_ITLACHIAYAQUE 11 /* invoke for cloud */
 
 boolean
 find_misc(struct monst* mtmp)
@@ -1903,6 +1931,12 @@ find_misc(struct monst* mtmp)
             && !obj->olocked && !obj->otrapped) {
             g.m.misc = obj;
             g.m.has_misc = MUSE_BAG;
+        }
+        nomore(MUSE_ITLACHIAYAQUE);
+        if (obj->oartifact == ART_ITLACHIAYAQUE && obj->age <= g.monstermoves
+            && !mtmp->mpeaceful && !mtmp->mblinded && m_canseeu(mtmp)) {
+            g.m.misc = obj;
+            g.m.has_misc = MUSE_ITLACHIAYAQUE;
         }
     }
     return (boolean) !!g.m.has_misc;
@@ -2241,6 +2275,23 @@ use_misc(struct monst* mtmp)
         }
         /*NOTREACHED*/
         return 0;
+    case MUSE_ITLACHIAYAQUE:
+        /* invoke timeout; allow quest nemesis to use it more often */
+        otmp->age = g.monstermoves + (mtmp->data == &mons[PM_SCHLIEMANN]
+                                      ? rn1(20,10) : rnz(100));
+        if (cansee(mtmp->mx, mtmp->my)) {
+            pline("%s brandishes Itlachiayaque!", Monnam(mtmp));
+            pline("A noxious cloud pours forth!");
+        }
+        else if (!Blind) {
+            pline("A noxious cloud envelops you!");
+        }
+        else if (!breathless(g.youmonst.data)) {
+            pline("Noxious air seems to surround you!");
+        }
+        create_gas_cloud(u.ux, u.uy, 15 + 10 * bcsign(otmp),
+                         8 + 4 * bcsign(otmp));
+        return 2;
     case 0:
         return 0; /* i.e. an exploded wand */
     default:
@@ -2367,7 +2418,8 @@ searches_for_item(struct monst* mon, struct obj* obj)
         if (typ == POT_HEALING || typ == POT_EXTRA_HEALING
             || typ == POT_FULL_HEALING || typ == POT_POLYMORPH
             || typ == POT_GAIN_LEVEL || typ == POT_PARALYSIS
-            || typ == POT_SLEEPING || typ == POT_ACID || typ == POT_CONFUSION)
+            || typ == POT_SLEEPING || typ == POT_ACID || typ == POT_CONFUSION
+            || typ == POT_OIL)
             return TRUE;
         if (typ == POT_BLINDNESS && !attacktype(mon->data, AT_GAZE))
             return TRUE;

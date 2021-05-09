@@ -44,12 +44,12 @@ const struct Role roles[NUM_ROLES+1] = {
       NON_PM,
       PM_LORD_CARNARVON,
       PM_STUDENT,
-      PM_MINION_OF_HUHETOTL,
-      NON_PM,
+      PM_SCHLIEMANN,
       PM_HUMAN_MUMMY,
-      S_SNAKE,
+      NON_PM,
       S_MUMMY,
-      ART_ORB_OF_DETECTION,
+      S_SNAKE,
+      ART_ITLACHIAYAQUE,
       MH_HUMAN | MH_DWARF | MH_GNOME | ROLE_MALE | ROLE_FEMALE | ROLE_LAWFUL
           | ROLE_NEUTRAL,
       /* Str Int Wis Dex Con Cha */

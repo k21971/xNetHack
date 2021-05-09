@@ -246,13 +246,11 @@ struct sortloot_item {
 };
 typedef struct sortloot_item Loot;
 
-/* FIXME: fix this kludge at next savebreak; see warn code in artifact.c */
 #define MATCH_WARN_OF_MON(mon)                                               \
     (Warn_of_mon                                                             \
-     && (((g.context.warntype.obj & 0x80000000) != 0                         \
-          && ((g.context.warntype.obj & 0x7FFFFFFF)                          \
-              == (unsigned int) (mon)->data->mlet))                          \
-         || (g.context.warntype.obj & (mon)->data->mflags2) != 0             \
+     && ((g.context.warntype.obj & (mon)->data->mflags2) != 0                \
+         || (g.context.warntype.obj_mlet                                     \
+             == (unsigned int) (mon)->data->mlet)                            \
          || (g.context.warntype.polyd & (mon)->data->mflags2) != 0           \
          || (g.context.warntype.species                                      \
              && (g.context.warntype.species == (mon)->data))))
@@ -551,6 +549,12 @@ enum psuedo_intrinsics {
  * was never going to be, so it's now a constant. */
 #define CUMBERSOME_ARMOR_PENALTY 20
 
+enum do_stinking_cloud_returns {
+    SCLOUD_CANCELED = 0,
+    SCLOUD_INVALID  = 1,
+    SCLOUD_CREATED  = 2
+};
+
 /* values for g.zombify; 0 is assumed to be "off" and not in zombify mode */
 enum zombify_values {
     ZOMBIFY_HOSTILE = 1, /* zombie will revive hostile */
@@ -569,6 +573,11 @@ enum adjattrib_return {
                         strength wearing gauntlets of power) */
     AA_CURRCHNG = 2  /* current value changed */
 };
+
+/* flags for mktrap() */
+#define MKTRAP_NOFLAGS       0x0
+#define MKTRAP_MAZEFLAG      0x1
+#define MKTRAP_NOSPIDERONWEB 0x2
 
 #define MON_POLE_DIST 5 /* How far monsters can use pole-weapons */
 #define PET_MISSILE_RANGE2 36 /* Square of distance within which pets shoot */
@@ -599,9 +608,9 @@ enum getobj_callback_returns {
      * without the "else" in "You don't have anything else to foo". */
     GETOBJ_EXCLUDE_SELECTABLE = 0,
     /* valid - invlet not presented in the summary or the ? menu as a
-     * recommendation, but is selectable if the player enters it anyway. Used
-     * for objects that are actually valid but unimportantly so, such as shirts
-     * for reading. */
+     * recommendation, but is selectable if the player enters it anyway.
+     * Used for objects that are actually valid but unimportantly so, such
+     * as shirts for reading. */
     GETOBJ_DOWNPLAY = 1,
     /* valid - will be shown in summary and ? menu */
     GETOBJ_SUGGEST  = 2,

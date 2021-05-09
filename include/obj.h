@@ -50,7 +50,8 @@ struct obj {
                 * marks spinach tins (1 iff corpsenm==NON_PM);
                 * marks tin variety (various: homemade, stir fried, &c);
                 * eggs laid by you (1), eggs upgraded with rojal jelly (2);
-                * Schroedinger's Box (1) or royal coffers for a court (2);
+                * Schroedinger's Box (1) or royal coffers for a court (2) or a
+                * mummy-trapped chest (3);
                 * named fruit index;
                 * candy bar wrapper index;
                 * scroll of mail (normal==0, bones or wishing==1, written==2);
@@ -225,7 +226,7 @@ struct obj {
      || permapoisoned(otmp))
 #define uslinging() (uwep && objects[uwep->otyp].oc_skill == P_SLING)
 /* 'is_quest_artifact()' only applies to the current role's artifact */
-#define any_quest_artifact(o) ((o)->oartifact >= ART_ORB_OF_DETECTION)
+#define any_quest_artifact(o) ((o)->oartifact >= ART_ITLACHIAYAQUE)
 /* used by will_weld() */
 /* probably should be renamed */
 #define erodeable_wep(optr)                             \
@@ -294,10 +295,10 @@ struct obj {
     (/* (Is_container(o) || (o)->otyp == STATUE) && */ \
      (o)->cobj != (struct obj *) 0)
 #define Is_container(o) ((o)->otyp >= LARGE_BOX && (o)->otyp <= BAG_OF_TRICKS)
-#define Is_box(otmp) (otmp->otyp == LARGE_BOX || otmp->otyp == CHEST)
-#define Is_mbag(otmp) \
-    (otmp->otyp == BAG_OF_HOLDING || otmp->otyp == BAG_OF_TRICKS)
+#define Is_box(o) ((o)->otyp == LARGE_BOX || (o)->otyp == CHEST)
+#define Is_mbag(o) ((o)->otyp == BAG_OF_HOLDING || (o)->otyp == BAG_OF_TRICKS)
 #define SchroedingersBox(o) ((o)->otyp == LARGE_BOX && (o)->spe == 1)
+#define Is_mummychest(o) ((o)->otyp == CHEST && (o)->spe == 3)
 
 /* dragon gear
  * NOTE: this assumes that gray dragons come first and yellow last, as detailed
@@ -306,6 +307,13 @@ struct obj {
 #define LAST_DRAGON         PM_YELLOW_DRAGON
 #define FIRST_DRAGON_SCALES GRAY_DRAGON_SCALES
 #define LAST_DRAGON_SCALES  YELLOW_DRAGON_SCALES
+
+/* usually waterproof; random chance to be subjected to leakage if cursed;
+   excludes statues, which aren't vulernable to water even when cursed */
+#define Waterproof_container(o) \
+    ((o)->otyp == OILSKIN_SACK || (o)->otyp == ICE_BOX || Is_box(o))
+
+/* dragon gear */
 #define Is_dragon_scales(obj) \
     ((obj)->otyp >= FIRST_DRAGON_SCALES && (obj)->otyp <= LAST_DRAGON_SCALES)
 /* Note: dragonscales is corpsenm, and corpsenm is usually initialized to

@@ -209,7 +209,8 @@ void
 mon_regen(struct monst* mon, boolean digest_meal)
 {
     if (mon->mhp < mon->mhpmax && (g.moves % 20 == (long) mon->m_id % 20
-                                   || regenerates(mon->data)))
+                                   || regenerates(mon->data))
+        && !mon->mwither)
         mon->mhp++;
     if (mon->mspec_used)
         mon->mspec_used--;
@@ -526,7 +527,7 @@ dochug(register struct monst* mtmp)
 
     /* Monsters that want to acquire things */
     /* may teleport, so do it before inrange is set */
-    if (is_covetous(mdat)) {
+    if (is_covetous(mdat) && !covetous_nonwarper(mdat)) {
         (void) tactics(mtmp);
         /* tactics -> mnexto -> deal_with_overcrowding */
         if (mtmp->mstate)
@@ -1065,7 +1066,7 @@ m_move(register struct monst* mtmp, register int after)
     }
 
     /* and the acquisitive monsters get special treatment */
-    if (is_covetous(ptr)) {
+    if (is_covetous(ptr) && !covetous_nonwarper(ptr)) {
         xchar tx = STRAT_GOALX(mtmp->mstrategy),
               ty = STRAT_GOALY(mtmp->mstrategy);
         struct monst *intruder = m_at(tx, ty);
@@ -1121,7 +1122,7 @@ m_move(register struct monst* mtmp, register int after)
     gx = mtmp->mux;
     gy = mtmp->muy;
     appr = mtmp->mflee ? -1 : 1;
-    if (keeps_distance(ptr) && dist2(omx, omy, gx, gy) < 10) {
+    if (keeps_distance(mtmp) && dist2(omx, omy, gx, gy) < 10) {
         /* FIXME: This should really only happen when the monster has a ranged
          * attack available. We can check to see if mdat has an innate ranged
          * attack, or if mtmp has an offensive item, but it's harder to check

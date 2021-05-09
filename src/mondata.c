@@ -129,6 +129,32 @@ resists_magm(struct monst* mon)
     return FALSE;
 }
 
+/* True iff monster is fire resistant */
+boolean
+resists_fire(struct monst* mon)
+{
+    struct obj *otmp;
+    if (mon == &g.youmonst) {
+        return !!Fire_resistance;
+    }
+    if (mon_resistancebits(mon) & MR_FIRE) {
+        /* this assumes any monster will have mextrinsics set for worn items
+         * that naturally provide fire resistance via oc_oprop
+         * (update_mon_intrinsics) */
+        return TRUE;
+    }
+    /* currently only Itlachiayaque provides fire resistance by a means that
+     * update_mon_intrinsics can't capture, because it also provides reflection.
+     * So this doesn't currently need to check for artifacts that provide fire
+     * resistance when worn or wielded. */
+    for (otmp = mon->minvent; otmp; otmp = otmp->nobj) {
+        if (otmp->oartifact && defends_when_carried(AD_FIRE, otmp)) {
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
 /* True iff monster is resistant to light-induced blindness */
 boolean
 resists_blnd(struct monst* mon)
@@ -1279,6 +1305,8 @@ monmaterial(int mndx)
     case PM_GARGOYLE:
     case PM_WINGED_GARGOYLE:
     case PM_EARTH_ELEMENTAL:
+    case PM_CLAY_GOLEM:
+    case PM_STONE_GOLEM:
         return MINERAL;
     case PM_SKELETON:
         return BONE;
@@ -1290,9 +1318,6 @@ monmaterial(int mndx)
         return LEATHER;
     case PM_WOOD_GOLEM:
         return WOOD;
-    case PM_CLAY_GOLEM:
-    case PM_STONE_GOLEM:
-        return MINERAL;
     case PM_GLASS_GOLEM:
         return GLASS;
     case PM_IRON_GOLEM:

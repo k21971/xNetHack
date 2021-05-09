@@ -1,4 +1,4 @@
-/* NetHack 3.7	read.c	$NHDT-Date: 1613870658 2021/02/21 01:24:18 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.219 $ */
+/* NetHack 3.7	read.c	$NHDT-Date: 1615760296 2021/03/14 22:18:16 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.220 $ */
 /* Copyright (c) Stichting Mathematisch Centrum, Amsterdam, 1985. */
 /*-Copyright (c) Robert Patrick Rankin, 2012. */
 /* NetHack may be freely redistributed.  See license for details. */
@@ -1054,7 +1054,7 @@ unflood_space(int x, int y, genericptr_t drycnt)
 /* scroll effects; return 1 if we use up the scroll and possibly make it
    become discovered, 0 if caller should take care of those side-effects */
 int
-seffects(struct obj* sobj) /* sobj - scroll, or fake spellbook object for scroll-like spell */
+seffects(struct obj *sobj) /* sobj - scroll or fake spellbook for spell */
 {
     int cval, otyp = sobj->otyp;
     boolean confused = (Confusion != 0), sblessed = sobj->blessed,
@@ -1468,9 +1468,26 @@ seffects(struct obj* sobj) /* sobj - scroll, or fake spellbook object for scroll
                            known not to be, make the scroll known; it's
                            trivial to identify anyway by comparing inventory
                            before and after */
-                        if (obj->bknown && otyp == SCR_REMOVE_CURSE) {
+                        if (obj->bknown && otyp == SCR_REMOVE_CURSE)
                             learnscrolltyp(SCR_REMOVE_CURSE);
-                        }
+                    }
+                }
+            }
+            /* if riding, treat steed's saddle as if part of hero's invent */
+            if (u.usteed && (obj = which_armor(u.usteed, W_SADDLE)) != 0) {
+                if (confused) {
+                    blessorcurse(obj, 2);
+                    obj->bknown = 0; /* skip set_bknown() */
+                } else if (obj->cursed) {
+                    uncurse(obj);
+                    /* like rndcurse(sit.c), effect on regular inventory
+                       doesn't show things glowing but saddle does */
+                    if (!Blind) {
+                        pline("%s %s.", Yobjnam2(obj, "glow"),
+                              hcolor("amber"));
+                        obj->bknown = Hallucination ? 0 : 1;
+                    } else {
+                        obj->bknown = 0; /* skip set_bknown() */
                     }
                 }
             }
@@ -1878,26 +1895,10 @@ seffects(struct obj* sobj) /* sobj - scroll, or fake spellbook object for scroll
         punish(sobj);
         break;
     case SCR_STINKING_CLOUD: {
-        coord cc;
-
         if (!already_known)
             You("have found a scroll of stinking cloud!");
         g.known = TRUE;
-        pline("Where do you want to center the %scloud?",
-              already_known ? "stinking " : "");
-        cc.x = u.ux;
-        cc.y = u.uy;
-        getpos_sethilite(display_stinking_cloud_positions, can_center_cloud);
-        if (getpos(&cc, TRUE, "the desired position") < 0
-            || !can_center_cloud(cc.x, cc.y)) {
-            if (Hallucination)
-                pline("Ugh... someone cut the cheese.");
-            else
-                pline("The scroll crumbles with a whiff of rotten eggs.");
-            break;
-        }
-        (void) create_gas_cloud(cc.x, cc.y, 15 + 10 * bcsign(sobj),
-                                8 + 4 * bcsign(sobj));
+        do_stinking_cloud(sobj, already_known);
         break;
     }
     case SCR_WATER: {
@@ -2394,7 +2395,7 @@ do_class_genocide(void)
                     }
                 } else if (g.mvitals[i].mvflags & G_GENOD) {
                     if (!gameover)
-                        pline("All %s are already nonexistent.", nam);
+                        pline("%s are already nonexistent.", upstart(nam));
                 } else if (!gameover) {
                     /* suppress feedback about quest beings except
                        for those applicable to our own role */
@@ -2665,6 +2666,49 @@ unpunish(void)
     dealloc_obj(savechain);
     /* the chain is gone but the no longer attached ball persists */
     setworn((struct obj *) 0, W_BALL); /* sets 'uball' to Null */
+}
+
+/* Prompt the player to create a stinking cloud and then create it if they give
+ * a location. */
+xchar
+do_stinking_cloud(struct obj *sobj, boolean mention_stinking)
+{
+    coord cc;
+    /* Using Itlachiayaque as the wrong role will center the cloud on hero's
+     * space without giving them the choice.
+     * Non-quest artifacts that produce clouds should always allow the
+     * player to center it. */
+    boolean center_on_u = any_quest_artifact(sobj) && !is_quest_artifact(sobj);
+
+    if (!center_on_u) {
+        pline("Where do you want to center the %scloud?",
+              mention_stinking ? "stinking " : "");
+    }
+    cc.x = u.ux;
+    cc.y = u.uy;
+    getpos_sethilite(display_stinking_cloud_positions, can_center_cloud);
+    if (center_on_u) {
+        ;
+    }
+    else if (getpos(&cc, TRUE, "the desired position") < 0) {
+        pline(Never_mind);
+        return SCLOUD_CANCELED;
+    }
+    else if (!can_center_cloud(cc.x, cc.y)) {
+        if (Hallucination)
+            pline("Ugh... someone cut the cheese.");
+        else
+            pline("%s a whiff of rotten eggs.",
+                  sobj->oclass == SCROLL_CLASS ? "The scroll crumbles with"
+                                               : "You smell");
+        return SCLOUD_INVALID;
+    }
+    if (sobj->oartifact) {
+        pline("A cloud of toxic smoke pours out!");
+    }
+    (void) create_gas_cloud(cc.x, cc.y, 15 + 10 * bcsign(sobj),
+                            8 + 4 * bcsign(sobj));
+    return SCLOUD_CREATED;
 }
 
 /* some creatures have special data structures that only make sense in their

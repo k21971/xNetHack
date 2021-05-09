@@ -133,8 +133,10 @@ struct monst {
     Bitfield(iswiz, 1);     /* is the Wizard of Yendor */
     Bitfield(wormno, 5);    /* at most 31 worms on any level */
     Bitfield(mtemplit, 1);  /* temporarily seen; only valid during bhit() */
-    /* 1 free bit */
+    Bitfield(mwither_from_u, 1); /* is withering due to player */
+    /* 0 free bits */
 
+    uchar mwither;          /* withering; amount of turns left till recovery */
 #define MAX_NUM_WORMS 32    /* should be 2^(wormno bitfield size) */
 
     unsigned long mstrategy; /* for monsters with mflag3: current strategy */
@@ -219,6 +221,10 @@ struct monst {
 #define tooweak(monindx, lev) (mons[monindx].difficulty < lev)
 
 #define helpless(mon) ((mon)->msleeping || !(mon)->mcanmove)
+
+/* is mon m (presumably just killed) a troll and obj o Trollsbane? */
+#define troll_baned(m,o) \
+    ((m)->data->mlet == S_TROLL && (o) && (o)->oartifact == ART_TROLLSBANE)
 
 /* Get the maximum difficulty monsters that can currently be generated,
    given the current level difficulty and the hero's level. */

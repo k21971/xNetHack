@@ -13,7 +13,7 @@
 /* mresists from any source - innate, intrinsic, or extrinsic */
 #define mon_resistancebits(mon) \
     ((mon)->data->mresists | (mon)->mextrinsics | (mon)->mintrinsics)
-#define resists_fire(mon) ((mon_resistancebits(mon) & MR_FIRE) != 0)
+/* resists_fire() turned into function to handle artifact fire resistance */
 #define resists_cold(mon) ((mon_resistancebits(mon) & MR_COLD) != 0)
 #define resists_sleep(mon) ((mon_resistancebits(mon) & MR_SLEEP) != 0 \
                             || mindless((mon)->data))
@@ -288,8 +288,14 @@
 
 /* The monster prefers to keep its distance rather than charging and engaging
  * you in combat. This was adapted from the M3_SKITTISH flag in SporkHack;
- * however, since only a couple monsters have this behavior and they're all in
- * the same class, it isn't necessary to add a M3 flag. */
-#define keeps_distance(ptr) ((ptr)->mlet == S_CENTAUR)
+ * however, since only a couple monsters have this behavior, it isn't necessary
+ * to add a M3 flag. */
+#define keeps_distance(mon) \
+    ((mon)->data->mlet == S_CENTAUR \
+     || ((mon)->data == &mons[PM_SCHLIEMANN] && !u.uhave.questart))
+
+/* The monster is covetous, but should not warp, heal, or otherwise use
+ * tactics(). */
+#define covetous_nonwarper(ptr) ((ptr) == &mons[PM_SCHLIEMANN])
 
 #endif /* MONDATA_H */

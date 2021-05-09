@@ -563,15 +563,14 @@ static struct window_procs hup_procs = {
     hup_curs, hup_putstr, hup_putstr,                  /* putmixed */
     hup_display_file, hup_void_fdecl_winid_ulong,      /* start_menu */
     hup_add_menu, hup_end_menu, hup_select_menu, genl_message_menu,
-    hup_void_ndecl,                                    /* update_inventory */
+    hup_void_fdecl_int,                                /* update_inventory */
     hup_void_ndecl,                                    /* mark_synch */
     hup_void_ndecl,                                    /* wait_synch */
 #ifdef CLIPPING
     hup_cliparound,
 #endif
 #ifdef POSITIONBAR
-    (void (*)(char *)) hup_void_fdecl_constchar_p,
-                                                      /* update_positionbar */
+    (void (*)(char *)) hup_void_fdecl_constchar_p,    /* update_positionbar */
 #endif
     hup_print_glyph,
     hup_void_fdecl_constchar_p,                       /* raw_print */
@@ -967,6 +966,8 @@ genl_status_update(int idx, genericptr_t ptr, int chg UNUSED,
                 Strcpy(nb = eos(nb), " FoodPois");
             if (cond & BL_MASK_TERMILL)
                 Strcpy(nb = eos(nb), " TermIll");
+            if (cond & BL_MASK_WITHER)
+                Strcpy(nb = eos(nb), " Wither");
             if (cond & BL_MASK_BLIND)
                 Strcpy(nb = eos(nb), " Blind");
             if (cond & BL_MASK_DEAF)
@@ -1622,7 +1623,8 @@ dump_render_status(void)
         { BL_MASK_HALLU,     "Hallu"    },
         { BL_MASK_LEV,       "Lev"      },
         { BL_MASK_FLY,       "Fly"      },
-        { BL_MASK_RIDE,      "Ride"     }
+        { BL_MASK_RIDE,      "Ride"     },
+        { BL_MASK_WITHER,    "Wither"   }
     };
 
     num_rows = (iflags.wc2_statuslines < 3) ? 2 : 3;

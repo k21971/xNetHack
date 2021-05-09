@@ -3161,9 +3161,11 @@ tty_message_menu(char let, int how, const char *mesg)
     return ((how == PICK_ONE && morc == let) || morc == '\033') ? morc : '\0';
 }
 
+/* update persistent inventory window */
 void
-tty_update_inventory(void)
+tty_update_inventory(int arg UNUSED)
 {
+    /* tty doesn't support persistent inventory window */
     return;
 }
 
@@ -3844,6 +3846,7 @@ tty_status_enablefield(int fieldidx, const char *nm, const char *fmt,
  *               BL_MASK_UNCONSC      0x08000000L
  *               BL_MASK_WOUNDEDL     0x10000000L
  *               BL_MASK_HOLDING      0x20000000L
+ *               BL_MASK_WITHER       0x40000000L
  *
  *      -- The value passed for BL_GOLD usually includes an encoded leading
  *         symbol for GOLD "\GXXXXNNNN:nnn". If the window port needs to use

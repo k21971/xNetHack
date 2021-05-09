@@ -136,6 +136,7 @@ typedef struct {
 typedef struct {
     packed_coord coord;
     xchar x, y, type;
+    boolean no_spider_on_web;
 } spltrap;
 
 typedef struct {
@@ -146,7 +147,7 @@ typedef struct {
     xchar x, y, class, appear;
     schar peaceful, asleep;
     short female, invis, cancelled, revived, avenge, fleeing, blinded,
-        paralyzed, stunned, confused, dead;
+        paralyzed, stunned, confused, dead, waiting;
     long seentraps;
     short has_invent;
 } monster;
@@ -163,6 +164,7 @@ typedef struct {
     short lit;
     short eroded, locked, trapped, recharged, invis, greased, broken,
           achievement;
+    xchar material;
 } object;
 
 typedef struct {

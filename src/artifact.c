@@ -1,4 +1,4 @@
-/* NetHack 3.7	artifact.c	$NHDT-Date: 1606765210 2020/11/30 19:40:10 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.161 $ */
+/* NetHack 3.7	artifact.c	$NHDT-Date: 1620326528 2021/05/06 18:42:08 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.167 $ */
 /* Copyright (c) Stichting Mathematisch Centrum, Amsterdam, 1985. */
 /*-Copyright (c) Robert Patrick Rankin, 2013. */
 /* NetHack may be freely redistributed.  See license for details. */
@@ -543,21 +543,31 @@ set_artifact_intrinsic(struct obj *otmp, boolean on, long wp_mask)
     }
     if (spfx & SPFX_WARN) {
         if (spec_m2(otmp)) {
-            /* FIXME: This currently uses 0x80000000 (M2_MAGIC, which nothing
-             * currently warns of) as a mask that denotes "actually warn versus
-             * monster mlet rather than M2 flags". The proper way to do this is
-             * to add another field to context.warntype, but that requires a
-             * savebreak; so when the next savebreak happens refactor this code.
-             */
             unsigned long type = spec_m2(otmp);
-            if (spfx & SPFX_DCLAS)
-                type |= 0x80000000;
+            boolean is_mlet = !!(spfx & SPFX_DCLAS);
+            /* NOTE: the way warn_of_mon works for warning of monster letters is
+             * currently not particularly robust, and relies on the assumption
+             * that it is impossible to have warning against two different
+             * monster letters from two different artifacts at the same time.
+             * This currently works because the only artifacts that warn of a
+             * monster class (rather than an M2 flag, which should work fine for
+             * multiples) are weapons. */
             if (on) {
                 EWarn_of_mon |= wp_mask;
-                g.context.warntype.obj |= type;
+                if (is_mlet) {
+                    g.context.warntype.obj_mlet = type;
+                }
+                else {
+                    g.context.warntype.obj |= type;
+                }
             } else {
                 EWarn_of_mon &= ~wp_mask;
-                g.context.warntype.obj &= ~type;
+                if (is_mlet) {
+                    g.context.warntype.obj_mlet = 0;
+                }
+                else {
+                    g.context.warntype.obj &= ~type;
+                }
             }
             see_monsters();
         } else {
@@ -1736,7 +1746,52 @@ arti_invoke(struct obj *obj)
                 buzz(9 + AD_ELEC, 8, u.ux, u.uy, u.dx, u.dy);
             }
             obfree(pseudo, NULL);
+            break;
         }
+	case SMOKE_CLOUD: {
+	    /* Itlachiayaque actually has two invoke effects - you can also gaze
+	     * into it like a crystal ball and look for a certain symbol. The
+	     * hero decides which effect. */
+	    int ret, n;
+	    char c;
+            winid tmpwin = create_nhwindow(NHW_MENU);
+            anything any = cg.zeroany;
+            menu_item *selected;
+
+            start_menu(tmpwin, MENU_BEHAVE_STANDARD);
+            any.a_char = 'a';
+            add_menu(tmpwin, &nul_glyphinfo, &any, 0, 0, ATR_NONE,
+                     "Create a stinking cloud", MENU_ITEMFLAGS_NONE);
+            any.a_char = 'b';
+            add_menu(tmpwin, &nul_glyphinfo, &any, 0, 0, ATR_NONE,
+                     "Gaze into the surface", MENU_ITEMFLAGS_NONE);
+            end_menu(tmpwin, "What would you like to do?");
+            n = select_menu(tmpwin, PICK_ONE, &selected);
+            destroy_nhwindow(tmpwin);
+
+            if (n < 0) {
+                obj->age = 0;
+                break;
+            }
+            c = selected[0].item.a_char;
+            if (c == 'a') {
+                if (!any_quest_artifact(obj) || is_quest_artifact(obj)) {
+                    You("may summon a stinking cloud.");
+                }
+                ret = do_stinking_cloud(obj, FALSE);
+                if (ret == SCLOUD_CANCELED) {
+                    obj->age = 0;
+                }
+            }
+            else {
+                You("gaze into the polished surface...");
+                g.context.crystal.ball = obj;
+                g.context.crystal.o_id = obj->o_id;
+                g.context.crystal.looktime = rn1(5, 6); /* same as ball */
+                set_occupation(look_in_crystal_ball, "gazing", 0);
+            }
+            break;
+	}
         }
     } else {
         long eprop = (u.uprops[oart->inv_prop].extrinsic ^= W_ARTI),
@@ -1780,6 +1835,7 @@ arti_invoke(struct obj *obj)
             } else
                 (void) float_down(I_SPECIAL | TIMEOUT, W_ARTI);
             break;
+        /* Formerly used for Orb of Detection, now unused.
         case INVIS:
             if (BInvis || Blind)
                 goto nothing_special;
@@ -1790,6 +1846,7 @@ arti_invoke(struct obj *obj)
             else
                 Your("body seems to unfade...");
             break;
+        */
         }
     }
 
@@ -1946,7 +2003,8 @@ what_gives(long *abil)
 
     for (obj = g.invent; obj; obj = obj->nobj) {
         if (obj->oartifact
-            && (abil != &EWarn_of_mon || g.context.warntype.obj)) {
+            && (abil != &EWarn_of_mon || g.context.warntype.obj
+                || g.context.warntype.obj_mlet)) {
             const struct artifact *art = get_artifact(obj);
 
             if (art) {
@@ -2329,11 +2387,13 @@ boolean
 is_magic_key(struct monst *mon, /* if null, non-rogue is assumed */
              struct obj *obj)
 {
-    if (((obj && obj->oartifact == ART_MASTER_KEY_OF_THIEVERY)
-         && ((mon == &g.youmonst) ? Role_if(PM_ROGUE)
-                                : (mon && mon->data == &mons[PM_ROGUE])))
-        ? !obj->cursed : obj->blessed)
-        return TRUE;
+    if (obj && obj->oartifact == ART_MASTER_KEY_OF_THIEVERY) {
+        if ((mon == &g.youmonst) ? Role_if(PM_ROGUE)
+                                 : (mon && mon->data == &mons[PM_ROGUE]))
+            return !obj->cursed; /* a rogue; non-cursed suffices for magic */
+        /* not a rogue; key must be blessed to behave as a magic one */
+        return obj->blessed;
+    }
     return FALSE;
 }
 
@@ -2360,6 +2420,21 @@ boolean
 permapoisoned(struct obj *obj)
 {
     return (obj && obj->oartifact == ART_GRIMTOOTH);
+}
+
+/* return TRUE if obj is an artifact with a name like "The X [of Y]" */
+boolean
+arti_starts_with_the(struct obj *obj)
+{
+    const char *artname;
+    if (!obj->oartifact)
+        return FALSE;
+
+    artname = artiname(obj->oartifact);
+    if (!strncmp(artname, "The", 3)) {
+        return TRUE;
+    }
+    return FALSE;
 }
 
 /*artifact.c*/

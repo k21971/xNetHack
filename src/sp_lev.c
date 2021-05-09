@@ -1759,6 +1759,7 @@ create_trap(spltrap* t, struct mkroom* croom)
 {
     xchar x = -1, y = -1;
     coord tm;
+    int mktrap_flags = MKTRAP_MAZEFLAG;
 
     if (croom) {
         get_free_room_loc(&x, &y, croom, t->coord);
@@ -1773,10 +1774,14 @@ create_trap(spltrap* t, struct mkroom* croom)
             return;
     }
 
+    if (t->no_spider_on_web) {
+        mktrap_flags |= MKTRAP_NOSPIDERONWEB;
+    }
+
     tm.x = x;
     tm.y = y;
 
-    mktrap(t->type, 1, (struct mkroom *) 0, &tm);
+    mktrap(t->type, mktrap_flags, (struct mkroom *) 0, &tm);
 }
 
 static int
@@ -2114,6 +2119,9 @@ create_monster(monster* m, struct mkroom* croom)
              * around, so revert mondead() incrementing this */
             g.mvitals[monsndx(mtmp->data)].died--;
         }
+        if (m->waiting) {
+            mtmp->mstrategy |= STRAT_WAITFORU;
+        }
     }
 }
 
@@ -2222,6 +2230,8 @@ create_object(object* o, struct mkroom* croom)
         otmp->otrapped = o->trapped;
     if (o->greased)
         otmp->greased = 1;
+    if (o->material > 0)
+        set_material(otmp, o->material);
 
     if (o->quan > 0 && objects[otmp->otyp].oc_merge) {
         otmp->quan = o->quan;
@@ -2287,7 +2297,7 @@ create_object(object* o, struct mkroom* croom)
             /* makemon without rndmonst() might create a group */
             was = makemon(&mons[wastyp], 0, 0, MM_NOCOUNTBIRTH);
             if (was) {
-                if (!resists_ston(was)) {
+                if (!resists_ston(was) && !poly_when_stoned(&mons[wastyp])) {
                     (void) propagate(wastyp, TRUE, FALSE);
                     break;
                 }
@@ -3107,6 +3117,7 @@ lspo_monster(lua_State* L)
     tmpmons.seentraps = 0;
     tmpmons.has_invent = 0;
     tmpmons.dead = 0;
+    tmpmons.waiting = 0;
 
     if (argc == 1 && lua_type(L, 1) == LUA_TSTRING) {
         const char *paramstr = luaL_checkstring(L, 1);
@@ -3171,6 +3182,7 @@ lspo_monster(lua_State* L)
         tmpmons.stunned = get_table_int_opt(L, "stunned", 0);
         tmpmons.confused = get_table_int_opt(L, "confused", 0);
         tmpmons.dead = get_table_int_opt(L, "dead", 0);
+        tmpmons.waiting = get_table_int_opt(L, "waiting", 0);
         tmpmons.seentraps = 0; /* TODO: list of trap names to bitfield */
         tmpmons.has_invent = 0;
 
@@ -3414,6 +3426,10 @@ lspo_object(lua_State* L)
         tmpobj.greased = get_table_boolean_opt(L, "greased", 0);
         tmpobj.broken = get_table_boolean_opt(L, "broken", 0);
         tmpobj.achievement = get_table_boolean_opt(L, "achievement", 0);
+        /* There is currently no way to say "use the default material"; leaving
+         * material blank may give it various materials using the normal
+         * formula, if the object is eligible. */
+        tmpobj.material = get_table_option(L, "material", "mysterious", materialnm);
 
         get_table_xy_or_coord(L, &ox, &oy);
 
@@ -4094,6 +4110,7 @@ get_traptype_byname(const char *trapname)
 }
 
 /* trap({ type = "hole", x = 1, y = 1 }); */
+/* trap({ type = "web", no_spider_on_web = 1 }); */
 /* trap("hole", 3, 4); */
 /* trap("level teleport", {5, 8}); */
 /* trap("rust") */
@@ -4106,6 +4123,8 @@ lspo_trap(lua_State* L)
     int argc = lua_gettop(L);
 
     create_des_coder();
+
+    tmptrap.no_spider_on_web = FALSE;
 
     if (argc == 1 && lua_type(L, 1) == LUA_TSTRING) {
         const char *trapstr = luaL_checkstring(L, 1);
@@ -4129,6 +4148,8 @@ lspo_trap(lua_State* L)
 
         get_table_xy_or_coord(L, &x, &y);
         tmptrap.type = get_table_traptype_opt(L, "type", -1);
+        tmptrap.no_spider_on_web
+            = get_table_boolean_opt(L, "no_spider_on_web", 0);
     }
 
     if (tmptrap.type == NO_TRAP)
@@ -4708,9 +4729,9 @@ selection_do_gradient(
 /* bresenham line algo */
 void
 selection_do_line(
-xchar x1, xchar y1,
-xchar x2, xchar y2,
-struct selectionvar *ov)
+    xchar x1, xchar y1,
+    xchar x2, xchar y2,
+    struct selectionvar *ov)
 {
     int d0, dx, dy, ai, bi, xi, yi;
 
@@ -4721,7 +4742,6 @@ struct selectionvar *ov)
         xi = -1;
         dx = x1 - x2;
     }
-
     if (y1 < y2) {
         yi = 1;
         dy = y2 - y1;
@@ -4732,7 +4752,10 @@ struct selectionvar *ov)
 
     selection_setpoint(x1, y1, ov, 1);
 
-    if (dx > dy) {
+    if (!dx && !dy) {
+        /* single point - already all done */
+        ;
+    } else if (dx > dy) {
         ai = (dy - dx) * 2;
         bi = dy * 2;
         d0 = bi - dx;
@@ -4763,11 +4786,11 @@ struct selectionvar *ov)
 
 void
 selection_do_randline(
-xchar x1, xchar y1,
-xchar x2, xchar y2,
-schar rough,
-schar rec,
-struct selectionvar *ov)
+    xchar x1, xchar y1,
+    xchar x2, xchar y2,
+    schar rough,
+    schar rec,
+    struct selectionvar *ov)
 {
     int mx, my;
     int dx, dy;
@@ -4806,9 +4829,9 @@ struct selectionvar *ov)
 
 static void
 selection_iterate(
-struct selectionvar *ov,
-select_iter_func func,
-genericptr_t arg)
+    struct selectionvar *ov,
+    select_iter_func func,
+    genericptr_t arg)
 {
     int x, y;
 
@@ -4961,6 +4984,9 @@ lspo_door(lua_State* L)
     if (iron != UNSPECIFIED) {
         msk &= ~D_IRON;
         msk |= (iron ? D_IRON : 0);
+    }
+    if (typ == SDOOR) {
+        msk |= D_SECRET;
     }
 
     if (x == -1 && y == -1) {
