@@ -1724,14 +1724,17 @@ obj_delivery(boolean near_hero)
         otmp->omigr_from_dnum = 0;
         otmp->omigr_from_dlevel = 0;
         if (nx > 0) {
-            if (where == MIGR_THIEFSTONE) {
+            if (where == MIGR_THIEFSTONE && Fits_in_container(otmp)) {
                 struct obj* cobj;
                 boolean found_container = FALSE;
                 /* put into a container on this spot, if possible */
                 cobj = g.level.objects[nx][ny];
                 for (; cobj; cobj = cobj->nexthere) {
                     if (Is_container(cobj)) {
+                        if (obj_is_burning(otmp))
+                            end_burn(otmp, TRUE);
                         add_to_container(cobj, otmp);
+                        cobj->owt = weight(cobj);
                         found_container = TRUE;
                         break;
                     }

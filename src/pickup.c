@@ -1669,19 +1669,24 @@ thiefstone_teleport(struct obj* stone, struct obj* obj, boolean dobill)
     }
     if (samelevel) {
         /* just do horizontal teleport */
-	struct obj* cobj;
+        struct obj* cobj;
         obj_extract_self(obj);
         obj->ox = kx;
         obj->oy = ky;
-	/* put into a container on this spot, if possible */
-	for (cobj = g.level.objects[obj->ox][obj->oy]; cobj;
-             cobj = cobj->nexthere) {
-	    if (Is_container(cobj)) {
-		add_to_container(cobj, obj);
-                return;
-	    }
-	}
-	/* if no containers here, continue normally */
+        if (Fits_in_container(obj)) {
+            /* put into a container on this spot, if possible */
+            for (cobj = g.level.objects[obj->ox][obj->oy]; cobj;
+                 cobj = cobj->nexthere) {
+                if (Is_container(cobj)) {
+                    if (obj_is_burning(obj))
+                        end_burn(obj, TRUE);
+                    add_to_container(cobj, obj);
+                    cobj->owt = weight(cobj);
+                    return;
+                }
+            }
+        }
+        /* if no containers here, continue normally */
         if (flooreffects(obj, obj->ox, obj->oy, "")) {
             return;
         }
@@ -1939,6 +1944,7 @@ encumber_msg(void)
                 newcap == 4 ? "can barely" : "can't even");
             break;
         }
+        update_inventory();
         g.context.botl = 1;
     } else if (g.oldcap > newcap) {
         switch (newcap) {
@@ -1956,6 +1962,7 @@ encumber_msg(void)
                 stagger(g.youmonst.data, "stagger"));
             break;
         }
+        update_inventory();
         g.context.botl = 1;
     }
 
@@ -2693,8 +2700,7 @@ in_container(struct obj *obj)
         return -1;
 
     /* boxes, boulders, and big statues can't fit into any container */
-    if (obj->otyp == ICE_BOX || Is_box(obj) || obj->otyp == BOULDER
-        || (obj->otyp == STATUE && bigmonst(&mons[obj->corpsenm]))) {
+    if (!Fits_in_container(obj)) {
         /*
          *  xname() uses a static result array.  Save obj's name
          *  before g.current_container's name is computed.  Don't
@@ -3039,8 +3045,10 @@ stash_ok(struct obj *obj)
     /* downplay the container being stashed into */
     if (!ck_bag(obj))
         return GETOBJ_EXCLUDE_SELECTABLE;
-    /* Possible extension: downplay things too big to fit into containers (in
-     * which case extract in_container()'s logic.) */
+
+    /* downplay items too big to fit in a container */
+    if (!Fits_in_container(obj))
+        return GETOBJ_EXCLUDE_SELECTABLE;
 
     return GETOBJ_SUGGEST;
 }
