@@ -103,6 +103,19 @@ changes:
     charges.
 - It is impossible to destroy a metal box or chest by forcing it.
 - The Oracle may generate with a potion of hallucination.
+- Several tweaks to the spell Pw cost formula:
+  - There is no more "effective Int" calculation, or a cap on it. Just your
+    normal Int is used.
+  - An equipped robe, quarterstaff, or wand of nothing halves the total penalty
+    you take from worn armor. These do not stack with each other.
+  - A wielded wand matching the spell you want to cast provides a direct boost
+    rather than lumping into "effective Int".
+- Grass patches appear in the Ranger quest start level.
+- Add the Oily Corpses Patch by L: there is a 20% chance upon starting to eat a
+  corpse of certain slippery monsters (e.g. most slithy, non-snakelike monsters
+  and most blobby monsters) that your fingers get slippery. Tins of them are not
+  slippery unless the tin preparation method is slippery.
+- Cursed wands explode more often, 1/30 of the time instead of 1/100.
 
 ### Interface changes
 
@@ -121,6 +134,12 @@ changes:
   chaotic is now black and unaligned red.
 - For Junethack, begin recording quest completion (returning to one's leader
   with the quest artifact) as "completed_quest" in the achieveX xlogfile field.
+- Magic flutes and harps are automatically identified when played with charges
+  remaining.
+- A new message prints when playing a fire or frost horn describing the
+  emanating bolt.
+- YAFMs:
+  - Attempting to chop down a petrified tree while hallucinating.
 
 ### Architectural changes
 
