@@ -147,6 +147,15 @@ changes:
   emanating bolt.
 - YAFMs:
   - Attempting to chop down a petrified tree while hallucinating.
+- It is now possible to transfer items out of one container and directly into
+  another container. This is done via a 't' option in the menu when you apply or
+  loot a container. You must have opened and looked inside the second container
+  (effectively ensuring it is not locked or trapped or a bag of tricks).
+- Adjust Cleaver interactions with peacefuls:
+  - If all targets in the attack arc are hostile, it attacks in an arc.
+  - If there are peaceful targets in the arc and you did not press F before
+    attacking, it attacks only the main target.
+  - If there are peacefuls in the arc and you did press F, it attacks in an arc.
 
 ### Architectural changes
 
