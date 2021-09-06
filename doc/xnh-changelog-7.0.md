@@ -123,6 +123,14 @@ changes:
   how much they're carrying.
 - 5% of rolling boulder traps outside the Quest contain the remains of a dead
   archeologist (corpse, fedora, and bullwhip.)
+- Stunned monsters move and hit things randomly, identically to how confused
+  monsters do.
+- Archeologists can safely enchant fedoras when they are +4 or +5.
+- Open doors can be moved into diagonally if there is another non-closed door on
+  one of the two mutually adjacent spaces. (Basically, you can walk diagonally
+  through open double doors.)
+- When you die, intelligent adjacent monsters may automatically take some of
+  your possessions.
 
 ### Interface changes
 
