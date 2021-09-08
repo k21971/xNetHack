@@ -272,8 +272,7 @@ give_to_nearby_mon(struct obj *otmp)
                 continue;
             /* This doesn't do any checks on otmp to see that it matches the
              * likes_* property, intentionally. Assume that the monster is
-             * rifling through and taking anything that might look interesting.
-             */
+             * rifling through and taking things that look interesting. */
             if (!(likes_gold(mtmp->data) || likes_gems(mtmp->data)
                   || likes_objs(mtmp->data) || likes_magic(mtmp->data)))
                 continue;
