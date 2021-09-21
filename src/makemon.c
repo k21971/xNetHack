@@ -117,14 +117,15 @@ static
 void
 m_initthrow(struct monst *mtmp, int otyp, int oquan)
 {
-    register struct obj *otmp;
+    register struct obj *otmp = mongets(mtmp, otyp);
 
-    otmp = mksobj(otyp, TRUE, FALSE);
+    if (!otmp)
+        return; /* merged with something in inventory */
+
     otmp->quan = (long) rn1(oquan, 3);
     otmp->owt = weight(otmp);
-    if (otyp == ORCISH_ARROW)
+    if (otmp->otyp == ORCISH_ARROW)
         otmp->opoisoned = TRUE;
-    (void) mpickobj(mtmp, otmp);
 }
 
 static void
@@ -1174,6 +1175,9 @@ makemon(register struct permonst *ptr,
 
     fakemon = cg.zeromonst;
     cc.x = cc.y = 0;
+
+    if (iflags.debug_mongen)
+        return (struct monst *) 0;
 
     /* if caller wants random location, do it here */
     if (x == 0 && y == 0) {
@@ -2394,6 +2398,10 @@ set_mimic_sym(register struct monst *mtmp)
         ap_type = M_AP_OBJECT;
         appear = STATUE;
     } else if (rt >= SHOPBASE) {
+        if (rn2(10) >= depth(&u.uz)) {
+            s_sym = S_MIMIC_DEF; /* -> STRANGE_OBJECT */
+            goto assign_sym;
+        }
         s_sym = get_shop_item(rt - SHOPBASE);
         if (s_sym < 0) {
             ap_type = M_AP_OBJECT;
