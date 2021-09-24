@@ -22,9 +22,9 @@ COMPRESSBIN="/bin/gzip"
 NH_GIT="/home/build/xNetHack"
 NH_BRANCH="master"
 # HACKDIR from include/config.h; aka nethack subdir inside chroot
-NHSUBDIR="xnethack-6.2.0"
+NHSUBDIR="xnethack-6.3.0"
 # VAR_PLAYGROUND from include/unixconf.h
-NH_VAR_PLAYGROUND="/xnethack-6.2.0/var/"
+NH_VAR_PLAYGROUND="/xnethack-6.3.0/var/"
 # only define this if dgl was configured with --enable-sqlite
 SQLITE_DBFILE="/dgldir/dgamelaunch.db"
 # END OF CONFIG
@@ -51,8 +51,8 @@ set -e
 umask 022
 
 echo "Creating inprogress and extrainfo directories"
-mkdir -p "$NAO_CHROOT/dgldir/inprogress-xnh620"
-chown "$USRGRP" "$NAO_CHROOT/dgldir/inprogress-xnh620"
+mkdir -p "$NAO_CHROOT/dgldir/inprogress-xnh630"
+chown "$USRGRP" "$NAO_CHROOT/dgldir/inprogress-xnh630"
 mkdir -p "$NAO_CHROOT/dgldir/extrainfo-xnh"
 chown "$USRGRP" "$NAO_CHROOT/dgldir/extrainfo-xnh"
 
