@@ -20,6 +20,8 @@ static boolean mitem_gem(struct obj *);
 static boolean holds_up_web(xchar, xchar);
 static int count_webbing_walls(xchar, xchar);
 static boolean soko_allow_web(struct monst *);
+static boolean leppie_avoidance(struct monst *);
+static void leppie_stash(struct monst *);
 static boolean m_balks_at_approaching(struct monst *);
 static boolean stuff_prevents_passage(struct monst *);
 static int vamp_shift(struct monst *, struct permonst *, boolean);
@@ -396,6 +398,12 @@ monflee(
                 pline("%s turns to flee.", Monnam(mtmp));
             }
         }
+
+        if (mtmp->data == &mons[PM_VROCK] && !mtmp->mspec_used) {
+            mtmp->mspec_used = 75 + rn2(25);
+            (void) create_gas_cloud(mtmp->mx, mtmp->my, 5, 8);
+        }
+
         mtmp->mflee = 1;
     }
     /* ignore recently-stepped spaces when made to flee */
@@ -517,9 +525,17 @@ dochug(register struct monst* mtmp)
     /* some monsters teleport */
     if (mtmp->mflee && !rn2(40) && can_teleport(mdat) && !mtmp->iswiz
         && !noteleport_level(mtmp)) {
-        (void) rloc(mtmp, TRUE);
+        if (rloc(mtmp, RLOC_MSG))
+            leppie_stash(mtmp);
         return 0;
     }
+
+    if (is_open_air(mtmp->mx, mtmp->my) && grounded(mdat)
+        && !(mtmp == u.usteed && (Flying || Levitation))) {
+        mon_aireffects(mtmp);
+        return 0; /* dead or gone */
+    }
+
     if (mdat->msound == MS_SHRIEK && !um_dist(mtmp->mx, mtmp->my, 1))
         m_respond(mtmp);
     if (mdat->msound == MS_ROAR && !um_dist(mtmp->mx, mtmp->my, 10) && !rn2(30)
@@ -584,7 +600,7 @@ dochug(register struct monst* mtmp)
             if (is_demon(g.youmonst.data)) {
                 /* "Good hunting, brother" */
                 if (!tele_restrict(mtmp))
-                    (void) rloc(mtmp, TRUE);
+                    (void) rloc(mtmp, RLOC_MSG);
             } else {
                 mtmp->minvis = mtmp->perminvis = 0;
                 /* Why?  For the same reason in real demon talk */
@@ -786,7 +802,7 @@ dochug(register struct monst* mtmp)
                 if (u.uswallow)
                     return mattacku(mtmp);
                 /* if confused grabber has wandered off, let go */
-                if (distu(mtmp->mx, mtmp->my) > 2)
+                if (!next2u(mtmp->mx, mtmp->my))
                     unstuck(mtmp);
             }
             return 0;
@@ -953,6 +969,42 @@ m_digweapon_check(struct monst* mtmp, xchar nix, xchar niy)
     return FALSE;
 }
 
+/* does leprechaun want to avoid the hero? */
+static boolean
+leppie_avoidance(struct monst *mtmp)
+{
+    struct obj *lepgold, *ygold;
+
+    if (mtmp->data == &mons[PM_LEPRECHAUN]
+        && ((lepgold = findgold(mtmp->minvent, TRUE))
+            && (lepgold->quan
+                > ((ygold = findgold(g.invent, TRUE)) ? ygold->quan : 0L))))
+        return TRUE;
+
+    return FALSE;
+}
+
+/* unseen leprechaun with gold might stash it */
+static void
+leppie_stash(struct monst *mtmp)
+{
+    struct obj *gold;
+
+    if (mtmp->data == &mons[PM_LEPRECHAUN]
+        && !DEADMONSTER(mtmp)
+        && !m_canseeu(mtmp)
+        && !*in_rooms(mtmp->mx, mtmp->my, SHOPBASE)
+        && levl[mtmp->mx][mtmp->my].typ == ROOM
+        && !t_at(mtmp->mx, mtmp->my)
+        && rn2(4)
+        && (gold = findgold(mtmp->minvent, TRUE)) != 0) {
+        mdrop_obj(mtmp, gold, FALSE);
+        gold = g_at(mtmp->mx, mtmp->my);
+        if (gold)
+            (void) bury_an_obj(gold, (boolean *) 0);
+    }
+}
+
 /* does monster want to avoid you? */
 static boolean
 m_balks_at_approaching(struct monst* mtmp)
@@ -1082,7 +1134,7 @@ m_move(register struct monst* mtmp, register int after)
     if (mtmp->mtrapped) {
         int i = mintrap(mtmp);
 
-        if (i >= 2) {
+        if (i >= Trap_Killed_Mon) {
             newsym(mtmp->mx, mtmp->my);
             return 2;
         } /* it died */
@@ -1176,9 +1228,9 @@ m_move(register struct monst* mtmp, register int after)
     if (ptr == &mons[PM_TENGU] && !rn2(5) && !mtmp->mcan
         && !tele_restrict(mtmp)) {
         if (mtmp->mhp < 7 || mtmp->mpeaceful || rn2(2))
-            (void) rloc(mtmp, TRUE);
+            (void) rloc(mtmp, RLOC_MSG);
         else
-            mnexto(mtmp);
+            mnexto(mtmp, RLOC_MSG);
         mmoved = 1;
         goto postmov;
     }
@@ -1197,10 +1249,9 @@ m_move(register struct monst* mtmp, register int after)
          * whether they have a usable ranged weapon. */
         appr = -1;
     }
-    if (mtmp->mconf || mtmp->mstun || (u.uswallow && mtmp == u.ustuck)) {
+    if (mtmp->mconf || mtmp->mstun || engulfing_u(mtmp)) {
         appr = 0;
     } else {
-        struct obj *lepgold, *ygold;
         boolean should_see = (couldsee(omx, omy)
                               && (levl[gx][gy].lit || !levl[omx][omy].lit)
                               && (dist2(omx, omy, gx, gy) <= 36));
@@ -1214,10 +1265,7 @@ m_move(register struct monst* mtmp, register int after)
                  || ptr->mlet == S_LIGHT) && !rn2(3)))
             appr = 0;
 
-        if (monsndx(ptr) == PM_LEPRECHAUN && (appr == 1)
-            && ((lepgold = findgold(mtmp->minvent, TRUE))
-                && (lepgold->quan
-                    > ((ygold = findgold(g.invent, TRUE)) ? ygold->quan : 0L))))
+        if (appr == 1 && leppie_avoidance(mtmp))
             appr = -1;
 
         /* hostiles with ranged weapon or attack try to stay away */
@@ -1290,6 +1338,11 @@ m_move(register struct monst* mtmp, register int after)
                    down on move overhead by filtering out most common item */
                 if (otmp->otyp == ROCK)
                     continue;
+                /* avoid special items; once hero picks them up, they'll
+                   cease being special */
+                if (is_mines_prize(otmp) || is_soko_prize(otmp))
+                    continue;
+
                 xx = otmp->ox;
                 yy = otmp->oy;
                 /* Nymphs take everything.  Most other creatures should not
@@ -1312,6 +1365,12 @@ m_move(register struct monst* mtmp, register int after)
                        is insufficient for deciding whether to do so */
                     if ((is_pool(xx, yy) && !is_swimmer(ptr))
                         || (is_lava(xx, yy) && !likes_lava(ptr)))
+                        continue;
+
+                    /* don't focus on an object that is in midair (normally it
+                     * doesn't make sense for an object to float in midair but
+                     * the Amulet and friends can on certain levels) */
+                    if (is_open_air(xx, yy) && grounded(ptr))
                         continue;
 
                     if (((likegold && otmp->oclass == COIN_CLASS)
@@ -1520,7 +1579,7 @@ m_move(register struct monst* mtmp, register int after)
         mtmp->mtrack[0].y = omy;
     } else {
         if (is_unicorn(ptr) && rn2(2) && !tele_restrict(mtmp)) {
-            (void) rloc(mtmp, TRUE);
+            (void) rloc(mtmp, RLOC_MSG);
             return 1;
         }
         /* for a long worm, shrink it (by discarding end of tail) when
@@ -1566,7 +1625,7 @@ m_move(register struct monst* mtmp, register int after)
             }
 
             newsym(omx, omy); /* update the old position */
-            if (mintrap(mtmp) >= 2) {
+            if (mintrap(mtmp) >= Trap_Killed_Mon) {
                 if (mtmp->mx)
                     newsym(mtmp->mx, mtmp->my);
                 return 2; /* it died */
@@ -1615,7 +1674,7 @@ m_move(register struct monst* mtmp, register int after)
                 return 2; /* mon died (position already updated) */
 
             /* set also in domove(), hack.c */
-            if (u.uswallow && mtmp == u.ustuck
+            if (engulfing_u(mtmp)
                 && (mtmp->mx != omx || mtmp->my != omy)) {
                 /* If the monster moved, then update */
                 u.ux0 = u.ux;
@@ -1986,6 +2045,7 @@ vamp_shift(
 {
     int reslt = 0;
     char oldmtype[BUFSZ];
+    boolean sawmon = canseemon(mon); /* before shape change */
 
     /* remember current monster type before shapechange */
     Strcpy(oldmtype, domsg ? noname_monnam(mon, ARTICLE_THE) : "");
@@ -1999,9 +2059,14 @@ vamp_shift(
     }
 
     if (reslt && domsg) {
-        pline("You %s %s where %s was.",
-              !canseemon(mon) ? "now detect" : "observe",
-              noname_monnam(mon, ARTICLE_A), oldmtype);
+        /* might have seen vampire/bat/wolf with infravision then be
+           unable to see the same creature when it turns into a fog cloud */
+        if (canspotmon(mon))
+            You("%s %s where %s was.",
+                !canseemon(mon) ? "now detect" : "observe",
+                noname_monnam(mon, ARTICLE_A), oldmtype);
+        else
+            You("can no longer %s %s.", sawmon ? "see" : "sense", oldmtype);
         /* this message is given when it turns into a fog cloud
            in order to move under a closed door */
         display_nhwindow(WIN_MESSAGE, FALSE);

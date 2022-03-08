@@ -88,7 +88,7 @@ missmm(register struct monst *magr, register struct monst *mdef,
         if (blocker && !rn2(5)) {
             Sprintf(buf, "%s %s %s", s_suffix(Monnam(mdef)), blocker,
                     rn2(3) ? "blocks" : "deflects");
-            pline("%s %s attack.", buf, s_suffix(mon_nam_too(mdef, magr)));
+            pline("%s %s attack.", buf, s_suffix(mon_nam_too(magr, mdef)));
         }
         else  {
             fmt = (could_seduce(magr, mdef, mattk) && !magr->mcan)
@@ -132,7 +132,7 @@ fightm(register struct monst *mtmp)
         if (itsstuck(mtmp))
             return 0;
     }
-    has_u_swallowed = (u.uswallow && (mtmp == u.ustuck));
+    has_u_swallowed = engulfing_u(mtmp);
 
     for (mon = fmon; mon; mon = nmon) {
         nmon = mon->nmon;
@@ -249,19 +249,29 @@ mdisplacem(register struct monst *magr, register struct monst *mdef,
     }
 
     remove_monster(fx, fy); /* pick up from orig position */
-    remove_monster(tx, ty);
+    if (mdef->wormno)
+        remove_worm(mdef);
+    else
+        remove_monster(tx, ty);
     place_monster(magr, tx, ty); /* put down at target spot */
     place_monster(mdef, fx, fy);
+    if (mdef->wormno) /* now put down tail */
+        place_worm_tail_randomly(mdef, fx, fy);
+    /* either creature might move into or out of a poison gas cloud */
+    update_monster_region(magr);
+    update_monster_region(mdef);
+
     /* the monster that moves can decide to hide in its new spot; the displaced
      * monster is forced out of hiding even if it can hide in its new spot */
     if (hides_under(magr->data)) {
         hideunder(magr);
     }
     mdef->mundetected = 0;
+
     if (g.vis && !quietly)
         pline("%s moves %s out of %s way!", Monnam(magr), mon_nam(mdef),
               is_rider(pa) ? "the" : mhis(magr));
-    newsym(fx, fy);  /* see it */
+    newsym(fx, fy);  /* see it       */
     newsym(tx, ty);  /*   all happen */
     flush_screen(0); /* make sure it shows up */
 
@@ -442,7 +452,7 @@ mattackm(register struct monst *magr, register struct monst *mdef)
                             pline("%s divides as %s hits it!", buf,
                                   mon_nam(magr));
                         }
-                        mintrap(mclone);
+                        (void) mintrap(mclone);
                     }
                 }
             } else
@@ -490,7 +500,7 @@ mattackm(register struct monst *magr, register struct monst *mdef)
             if (distmin(magr->mx, magr->my, mdef->mx, mdef->my) > 1)
                 continue;
             /* Engulfing attacks are directed at the hero if possible. -dlc */
-            if (u.uswallow && magr == u.ustuck)
+            if (engulfing_u(magr))
                 strike = 0;
             else if ((strike = (tmp > rnd(20 + i))) != 0)
                 res[i] = gulpmm(magr, mdef, mattk);
@@ -818,7 +828,7 @@ gulpmm(register struct monst *magr, register struct monst *mdef,
         place_monster(magr, dx, dy);
         newsym(dx, dy);
         /* aggressor moves to <dx,dy> and might encounter trouble there */
-        if (minliquid(magr) || (t_at(dx, dy) && mintrap(magr) == 2))
+        if (minliquid(magr) || (t_at(dx, dy) && mintrap(magr) == Trap_Killed_Mon))
             status |= MM_AGR_DIED;
     } else if (status & MM_AGR_DIED) { /* aggressor died */
         place_monster(mdef, dx, dy);
@@ -1057,7 +1067,7 @@ mon_poly(struct monst *magr, struct monst *mdef, int dmg)
                 if (magr == &g.youmonst)
                     tele();
                 else if (!tele_restrict(magr))
-                    (void) rloc(magr, TRUE);
+                    (void) rloc(magr, RLOC_MSG);
             }
         } else {
             if (g.vis && flags.verbose)
@@ -1083,7 +1093,7 @@ paralyze_monst(struct monst *mon, int amt)
 int
 sleep_monst(struct monst *mon, int amt, int how)
 {
-    if (resists_sleep(mon)
+    if (resists_sleep(mon) || defended(mon, AD_SLEE)
         || (how >= 0 && resist(mon, (char) how, 0, NOTELL))) {
         shieldeff(mon->mx, mon->my);
     } else if (mon->mcanmove) {
@@ -1135,11 +1145,16 @@ rustm(struct monst *mdef, struct obj *obj)
 }
 
 static void
-mswingsm(struct monst *magr, struct monst *mdef, struct obj *otemp)
+mswingsm(
+    struct monst *magr, /* attacker */
+    struct monst *mdef, /* defender */
+    struct obj *otemp)  /* attacker's weapon */
 {
     if (flags.verbose && !Blind && mon_visible(magr)) {
-        pline("%s %s %s%s %s at %s.", Monnam(magr),
-              (objects[otemp->otyp].oc_dir & PIERCE) ? "thrusts" : "swings",
+        boolean bash = (is_pole(otemp)
+                        && dist2(magr->mx, magr->my, mdef->mx, mdef->my) <= 2);
+
+        pline("%s %s %s%s %s at %s.", Monnam(magr), mswings_verb(otemp, bash),
               (otemp->quan > 1L) ? "one of " : "", mhis(magr), xname(otemp),
               mon_nam(mdef));
     }
@@ -1302,6 +1317,10 @@ passivemm(register struct monst *magr, register struct monst *mdef,
             }
             if (canseemon(magr))
                 pline("%s is jolted with electricity!", Monnam(magr));
+            break;
+        case AD_DISE: /* black mold */
+            /* monster illness not yet implemented */
+            tmp = 0;
             break;
         default:
             tmp = 0;

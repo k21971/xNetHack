@@ -40,28 +40,28 @@ use_saddle(struct obj* otmp)
     int chance;
 
     if (!u_handsy())
-        return 0;
+        return ECMD_OK;
 
     /* Select an animal */
     if (u.uswallow || Underwater || !getdir((char *) 0)) {
         pline1(Never_mind);
-        return 0;
+        return ECMD_CANCEL;
     }
     if (!u.dx && !u.dy) {
         pline("Saddle yourself?  Very funny...");
-        return 0;
+        return ECMD_OK;
     }
     if (!isok(u.ux + u.dx, u.uy + u.dy)
         || !(mtmp = m_at(u.ux + u.dx, u.uy + u.dy)) || !canspotmon(mtmp)) {
         pline("I see nobody there.");
-        return 1;
+        return ECMD_TIME;
     }
 
     /* Is this a valid monster? */
     if ((mtmp->misc_worn_check & W_SADDLE) != 0L
         || which_armor(mtmp, W_SADDLE)) {
         pline("%s doesn't need another one.", Monnam(mtmp));
-        return 1;
+        return ECMD_TIME;
     }
     ptr = mtmp->data;
     if (touch_petrifies(ptr) && !uarmg && !Stone_resistance) {
@@ -78,16 +78,16 @@ use_saddle(struct obj* otmp)
     if (ptr == &mons[PM_AMOROUS_DEMON]) {
         pline("Shame on you!");
         exercise(A_WIS, FALSE);
-        return 1;
+        return ECMD_TIME;
     }
     if (mtmp->isminion || mtmp->isshk || mtmp->ispriest || mtmp->isgd
         || mtmp->iswiz) {
         pline("I think %s would mind.", mon_nam(mtmp));
-        return 1;
+        return ECMD_TIME;
     }
     if (!can_saddle(mtmp)) {
         You_cant("saddle such a creature.");
-        return 1;
+        return ECMD_TIME;
     }
 
     /* Calculate your chance */
@@ -135,7 +135,7 @@ use_saddle(struct obj* otmp)
         put_saddle_on_mon(otmp, mtmp);
     } else
         pline("%s resists!", Monnam(mtmp));
-    return 1;
+    return ECMD_TIME;
 }
 
 void
@@ -162,6 +162,7 @@ can_ride(struct monst* mtmp)
             && (!Underwater || is_swimmer(mtmp->data)));
 }
 
+/* the #ride command */
 int
 doride(void)
 {
@@ -172,11 +173,12 @@ doride(void)
     } else if (getdir((char *) 0) && isok(u.ux + u.dx, u.uy + u.dy)) {
         if (wizard && yn("Force the mount to succeed?") == 'y')
             forcemount = TRUE;
-        return (mount_steed(m_at(u.ux + u.dx, u.uy + u.dy), forcemount));
+        return (mount_steed(m_at(u.ux + u.dx, u.uy + u.dy), forcemount)
+                ? ECMD_TIME : ECMD_OK);
     } else {
-        return 0;
+        return ECMD_CANCEL;
     }
-    return 1;
+    return ECMD_TIME;
 }
 
 /* Start riding, with the given monster */
@@ -452,6 +454,10 @@ landing_spot(
                     continue;
 
                 if (accessible(x, y) && !MON_AT(x, y)
+                    /* accessible() excludes liquids, but not air, so we need to
+                     * check for it here */
+                    && !(is_open_air(x, y) && !Flying && !Levitation
+                         && !is_clinger(g.youmonst.data))
                     && test_move(u.ux, u.uy, x - u.ux, y - u.uy, TEST_MOVE)) {
                     distance = distu(x, y);
                     if (min_distance < 0 || distance < min_distance
@@ -603,12 +609,17 @@ dismount_steed(
             if (enexto(&cc, u.ux, u.uy, mtmp->data))
                 rloc_to(mtmp, cc.x, cc.y);
             else /* evidently no room nearby; move steed elsewhere */
-                (void) rloc(mtmp, FALSE);
+                (void) rloc(mtmp, RLOC_ERR|RLOC_NOMSG);
             return;
         }
 
+        /* If the hero is over air and the steed is grounded(), it will fall
+         * down. */
+        if (is_open_air(u.ux, u.uy)) {
+            mon_aireffects(mtmp);
+        }
         /* Set hero's and/or steed's positions.  Try moving the hero first. */
-        if (!u.uswallow && !u.ustuck && have_spot) {
+        else if (!u.uswallow && !u.ustuck && have_spot) {
             struct permonst *mdat = mtmp->data;
 
             /* The steed may drop into water/lava */

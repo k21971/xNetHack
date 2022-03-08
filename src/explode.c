@@ -5,9 +5,10 @@
 #include "hack.h"
 
 /* Note: Arrays are column first, while the screen is row first */
-static const int explosion[3][3] = { { S_explode1, S_explode4, S_explode7 },
-                               { S_explode2, S_explode5, S_explode8 },
-                               { S_explode3, S_explode6, S_explode9 } };
+static const int explosion[3][3] = {
+        { S_expl_tl, S_expl_ml, S_expl_bl },
+        { S_expl_tc, S_expl_mc, S_expl_bc },
+        { S_expl_tr, S_expl_mr, S_expl_br } };
 
 /* Note: I had to choose one of three possible kinds of "type" when writing
  * this function: a wand type (like in zap.c), an adtyp, or an object type.
@@ -31,7 +32,8 @@ explode(
     int x, int y, /* explosion's location; adjacent spots are also affected */
     int type,     /* same as in zap.c; -(wand typ) for some WAND_CLASS */
     int dam,      /* damage amount */
-    char olet,    /* object class or BURNING_OIL or MON_EXPLODE */
+    char olet,    /* object class or BURNING_OIL or MON_EXPLODE or
+                     TRAPPED_DOOR */
     int expltype) /* explosion type: controls color of explosion glyphs */
 {
     int i, j, k, damu = dam;
@@ -317,7 +319,7 @@ explode(
 
         tmp_at(DISP_END, 0); /* clear the explosion */
     } else {
-        if (olet == MON_EXPLODE) {
+        if (olet == MON_EXPLODE || olet == TRAP_EXPLODE) {
             str = "explosion";
             generic = TRUE;
         }
@@ -368,7 +370,7 @@ explode(
                     } while (*hallu_buf != lowc(*hallu_buf));
                     str = hallu_buf;
                 }
-                if (u.uswallow && mtmp == u.ustuck) {
+                if (engulfing_u(mtmp)) {
                     const char *adj = (char *) 0;
 
                     if (is_animal(u.ustuck->data)) {
@@ -464,7 +466,7 @@ explode(
                     /* if grabber is reaching into hero's spot and
                        hero's spot is within explosion radius, grabber
                        gets hit by double damage */
-                    if (grabbed && mtmp == u.ustuck && distu(x, y) <= 2)
+                    if (grabbed && mtmp == u.ustuck && next2u(x, y))
                         mdam *= 2;
                     /* being resistant to opposite type of damage makes
                        target more vulnerable to current type of damage
@@ -556,9 +558,9 @@ explode(
             g.context.botl = 1;
         }
 
-	/* You resisted the damage, lets not keep that to ourselves */
-	if (uhurt == 1)
-	    monstseesu_ad(adtyp);
+        /* You resisted the damage, lets not keep that to ourselves */
+        if (uhurt == 1)
+            monstseesu_ad(adtyp);
 
         if (u.uhp <= 0 || (Upolyd && u.mh <= 0)) {
             if (olet == MON_EXPLODE) {
@@ -567,11 +569,17 @@ explode(
                 else if (str != g.killer.name && str != hallu_buf)
                     Strcpy(g.killer.name, str);
                 g.killer.format = KILLED_BY_AN;
+            } else if ((olet == BURNING_OIL && g.context.mon_moving)
+                       || olet == TRAPPED_DOOR) {
+                g.killer.format = KILLED_BY_AN;
+                Snprintf(g.killer.name, sizeof g.killer.name,
+                         "exploding %s",
+                         olet == BURNING_OIL ? "fire bomb" : "door");
             } else if (type >= 0 && olet != SCROLL_CLASS) {
                 g.killer.format = NO_KILLER_PREFIX;
-                    Snprintf(g.killer.name, sizeof g.killer.name,
-                             "caught %sself in %s own %s", uhim(),
-                        uhis(), str);
+                Snprintf(g.killer.name, sizeof g.killer.name,
+                         "caught %sself in %s own %s", uhim(),
+                         uhis(), str);
             } else {
                 g.killer.format = (!strcmpi(str, "tower of flame")
                                     || !strcmpi(str, "fireball"))
@@ -962,6 +970,18 @@ mon_explodes(struct monst *mon, struct attack *mattk)
 
     explode(mon->mx, mon->my, type, dmg, MON_EXPLODE,
             adtyp_to_expltype(mattk->adtyp));
+
+    /* phoenix special case: drop an egg containing the reborn phoenix;
+     * eggs have to be done here instead of in the corpse function because
+     * otherwise the explosion destroys the egg */
+    if (mon->data == &mons[PM_PHOENIX]) {
+        struct obj *obj = mksobj_at(EGG, mon->mx, mon->my, TRUE, FALSE);
+        obj->corpsenm = PM_PHOENIX;
+        bless(obj);
+        obj->quan = 1;
+        obj->owt = weight(obj);
+        attach_egg_hatch_timeout(obj, 10L);
+    }
 
     /* reset killer */
     g.killer.name[0] = '\0';

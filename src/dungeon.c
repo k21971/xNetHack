@@ -1349,6 +1349,39 @@ builds_up(d_level *lev)
                       && dptr->entry_lev == dptr->num_dunlevs);
 }
 
+/* get the next level beneath this one; if there is none (last level of a branch
+ * that builds down), return (0,0) */
+void
+find_level_beneath(const d_level *start, d_level *beneath)
+{
+    branch *br = Is_branchlev((d_level *) start);
+    if (Is_stronghold((d_level *) start)) {
+        /* special case for Castle */
+        assign_level(beneath, &valley_level);
+    }
+    else if (start->dlevel != dunlevs_in_dungeon((d_level *) start)) {
+        /* if not on the bottom level of a branch, then fall to next lowest
+         * level (not multiple levels as might happen with a trapdoor) */
+        *beneath = *start;
+        beneath->dlevel++;
+    }
+    else if (br && br->type == BR_STAIR && builds_up((d_level *) start)) {
+        /* In Vlad's Tower cavern (or theoretically some other branch that
+            * grows upwards and is physically connected to the parent branch by a
+            * stairway), fall to that parent branch level beneath it */
+        if (br->end1.dnum == start->dnum)
+            *beneath = br->end2;
+        else
+            *beneath = br->end1;
+    }
+    else {
+        /* on the bottom level of a branch that either doesn't grow upward or
+         * doesn't connect via a stair */
+        beneath->dnum = 0;
+        beneath->dlevel = 0;
+    }
+}
+
 /* goto the next level (or appropriate dungeon) */
 void
 next_level(boolean at_stairs)
@@ -2427,7 +2460,7 @@ donamelevel(void)
     char nbuf[BUFSZ]; /* Buffer for response */
 
     if (!(mptr = find_mapseen(&u.uz)))
-        return 0;
+        return ECMD_OK;
 
     nbuf[0] = '\0';
 #ifdef EDIT_GETLIN
@@ -2449,7 +2482,7 @@ donamelevel(void)
     /* empty input or ESC means don't add or change annotation;
        space-only means discard current annotation without adding new one */
     if (!*nbuf || *nbuf == '\033')
-        return 0;
+        return ECMD_OK;
     /* strip leading and trailing spaces, compress out consecutive spaces */
     (void) mungspaces(nbuf);
 
@@ -2465,7 +2498,7 @@ donamelevel(void)
         mptr->custom = dupstr(nbuf);
         mptr->custom_lth = strlen(mptr->custom);
     }
-    return 0;
+    return ECMD_OK;
 }
 
 /* find the particular mapseen object in the chain; may return null */
@@ -2761,6 +2794,7 @@ recalc_mapseen(void)
     struct trap *t;
     unsigned i, ridx, atmp;
     int x, y, ltyp, count;
+    char uroom;
 
     /* Should not happen in general, but possible if in the process
      * of being booted from the quest.  The mapseen object gets
@@ -2807,18 +2841,14 @@ recalc_mapseen(void)
     /* flags.msanctum, .valley, and .vibrating_square handled below */
 
     /* track rooms the hero is in */
-    for (i = 0; i < SIZE(u.urooms); ++i) {
-        if (!u.urooms[i])
-            continue;
-
-        ridx = u.urooms[i] - ROOMOFFSET;
+    for (i = 0; (uroom = u.urooms[i]) != '\0'; ++i) {
+        ridx = (unsigned) uroom - ROOMOFFSET;
         mptr->msrooms[ridx].seen = 1;
         mptr->msrooms[ridx].untended =
             (g.rooms[ridx].rtype >= SHOPBASE)
-                ? (!(mtmp = shop_keeper(u.urooms[i])) || !inhishop(mtmp))
+                ? (!(mtmp = shop_keeper(uroom)) || !inhishop(mtmp))
                 : (g.rooms[ridx].rtype == TEMPLE)
-                      ? (!(mtmp = findpriest(u.urooms[i]))
-                         || !inhistemple(mtmp))
+                      ? (!(mtmp = findpriest(uroom)) || !inhistemple(mtmp))
                       : 0;
     }
 
@@ -3082,7 +3112,7 @@ int
 dooverview(void)
 {
     show_overview(0, 0);
-    return 0;
+    return ECMD_OK;
 }
 
 /* called for #overview or for end of game disclosure */

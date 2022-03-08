@@ -101,6 +101,10 @@ dungeon = {
             base = -1
          },
          {
+            name = "invocation",
+            base = -2
+         },
+         {
             name = "juiblex",
             bonetag = "J",
             base = 4,
@@ -249,7 +253,7 @@ dungeon = {
    },
    {
       name = "Vlad's Tower",
-      base = 3,
+      base = 4,
       bonetag = "T",
       protofile = "tower",
       alignment = "chaotic",
@@ -267,6 +271,10 @@ dungeon = {
          {
             name = "tower3",
             base = 3
+         },
+         {
+            name = "tower4",
+            base = 4
          },
       }
    },

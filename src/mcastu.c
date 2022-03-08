@@ -514,6 +514,8 @@ cast_wizard_spell(struct monst *mtmp, int dmg, int spellnum)
         mdamageu(mtmp, dmg);
 }
 
+DISABLE_WARNING_FORMAT_NONLITERAL
+
 static void
 cast_cleric_spell(struct monst *mtmp, int dmg, int spellnum)
 {
@@ -601,7 +603,7 @@ cast_cleric_spell(struct monst *mtmp, int dmg, int spellnum)
             if (!enexto(&bypos, mtmp->mux, mtmp->muy, mtmp->data))
                 break;
             if ((pm = mkclass(let, 0)) != 0
-                && (mtmp2 = makemon(pm, bypos.x, bypos.y, MM_ANGRY)) != 0) {
+                && (mtmp2 = makemon(pm, bypos.x, bypos.y, MM_ANGRY|MM_NOMSG)) != 0) {
                 success = TRUE;
                 mtmp2->msleeping = mtmp2->mpeaceful = mtmp2->mtame = 0;
                 set_malign(mtmp2);
@@ -733,6 +735,8 @@ cast_cleric_spell(struct monst *mtmp, int dmg, int spellnum)
         mdamageu(mtmp, dmg);
 }
 
+RESTORE_WARNING_FORMAT_NONLITERAL
+
 static boolean
 is_undirected_spell(unsigned int adtyp, int spellnum)
 {
@@ -847,10 +851,9 @@ buzzmu(register struct monst *mtmp, register struct attack *mattk)
     if (lined_up(mtmp) && rn2(3)) {
         nomul(0);
         if (mattk->adtyp && (mattk->adtyp < 11)) { /* no cf unsigned >0 */
-            if (canseemon(mtmp)) {
+            if (canseemon(mtmp))
                 pline("%s zaps you with a %s!", Monnam(mtmp),
                       flash_str(ad_to_typ(mattk->adtyp), FALSE));
-            }
             buzz(-ad_to_typ(mattk->adtyp), (int) mattk->damn, mtmp->mx,
                  mtmp->my, sgn(g.tbx), sgn(g.tby));
         } else

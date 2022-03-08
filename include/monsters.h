@@ -315,7 +315,8 @@
         SIZ(10, 10, MS_SILENT, MZ_SMALL), MR_COLD, MR_COLD,
         M1_FLY | M1_BREATHLESS | M1_NOLIMBS | M1_NOHEAD | M1_MINDLESS
             | M1_NOTAKE,
-        M2_HOSTILE | M2_NEUTER, M3_INFRAVISIBLE, 9, CLR_WHITE, FREEZING_SPHERE),
+        M2_HOSTILE | M2_NEUTER, M3_INFRAVISIBLE, 9, CLR_WHITE,
+        FREEZING_SPHERE),
     MON("flaming sphere", S_EYE, LVL(6, 13, 4, 0, 0),
         (G_NOCORPSE | G_GENO | 2), A(ATTK(AT_EXPL, AD_FIRE, 4, 6), NO_ATTK,
                                      NO_ATTK, NO_ATTK, NO_ATTK, NO_ATTK),
@@ -1079,6 +1080,14 @@
         SIZ(30, 20, MS_SQEEK, MZ_SMALL), MR_SLEEP | MR_POISON, 0,
         M1_FLY | M1_ANIMAL | M1_NOHANDS | M1_POIS | M1_REGEN | M1_OMNIVORE,
         M2_HOSTILE, M3_INFRAVISIBLE, 7, CLR_BLACK, VAMPIRE_BAT),
+    MON("phoenix", S_BAT, LVL(15, 20, -7, 40, 7), (G_GENO | G_NOCORPSE | 2),
+        A(ATTK(AT_BITE, AD_PHYS, 2, 6), ATTK(AT_CLAW, AD_PHYS, 3, 6),
+          ATTK(AT_CLAW, AD_FIRE, 3, 6), ATTK(AT_BOOM, AD_FIRE, 8, 6),
+          NO_ATTK, NO_ATTK),
+        SIZ(40, 20, MS_SQAWK, MZ_SMALL), MR_FIRE, MR_FIRE,
+        M1_FLY | M1_ANIMAL | M1_NOHANDS | M1_CARNIVORE | M1_OVIPAROUS,
+        M2_WANDER | M2_STALK | M2_NASTY, M3_INFRAVISIBLE, 20, CLR_ORANGE,
+        PHOENIX),
     /*
      * Centaurs
      */
@@ -1206,6 +1215,7 @@
             | M1_CARNIVORE,
         M2_HOSTILE | M2_STRONG | M2_NASTY | M2_GREEDY | M2_JEWELS | M2_MAGIC,
         0, 20, CLR_GRAY, GRAY_DRAGON),
+    /* gold dragon can be seen via infravision but doesn't have infravision */
     MON("gold dragon", S_DRAGON, LVL(15, 9, -1, 20, 4), (G_GENO | 1),
         A(ATTK(AT_BREA, AD_FIRE, 4, 6), ATTK(AT_BITE, AD_PHYS, 3, 8),
           ATTK(AT_CLAW, AD_PHYS, 1, 4), ATTK(AT_CLAW, AD_PHYS, 1, 4),
@@ -1240,6 +1250,7 @@
         M2_HOSTILE | M2_STRONG | M2_NASTY | M2_GREEDY | M2_JEWELS | M2_MAGIC,
         0, 20, CLR_CYAN, SHIMMERING_DRAGON),
 #endif
+    /* red dragon has infravision and can be seen via infravision */
     MON("red dragon", S_DRAGON, LVL(15, 9, -1, 20, -4), (G_GENO | 1),
         A(ATTK(AT_BREA, AD_FIRE, 6, 6), ATTK(AT_BITE, AD_PHYS, 3, 8),
           ATTK(AT_CLAW, AD_PHYS, 1, 4), ATTK(AT_CLAW, AD_PHYS, 1, 4), NO_ATTK,
@@ -1248,7 +1259,7 @@
         M1_FLY | M1_THICK_HIDE | M1_NOHANDS | M1_SEE_INVIS | M1_OVIPAROUS
             | M1_CARNIVORE,
         M2_HOSTILE | M2_STRONG | M2_NASTY | M2_GREEDY | M2_JEWELS | M2_MAGIC,
-        M3_INFRAVISIBLE, 20, CLR_RED, RED_DRAGON),
+        M3_INFRAVISION | M3_INFRAVISIBLE, 20, CLR_RED, RED_DRAGON),
     MON("white dragon", S_DRAGON, LVL(15, 9, -1, 20, -5), (G_GENO | 1),
         A(ATTK(AT_BREA, AD_COLD, 4, 6), ATTK(AT_BITE, AD_PHYS, 3, 8),
           ATTK(AT_CLAW, AD_PHYS, 1, 4), ATTK(AT_CLAW, AD_PHYS, 1, 4), NO_ATTK,
@@ -1395,6 +1406,13 @@
         M1_BREATHLESS | M1_NOEYES | M1_NOLIMBS | M1_NOHEAD | M1_MINDLESS
             | M1_NOTAKE,
         M2_HOSTILE | M2_NEUTER, 0, 5, CLR_MAGENTA, VIOLET_FUNGUS),
+    MON("black mold", S_FUNGUS, LVL(3, 0, 7, 0, 0), (G_GENO | 1),
+        A(ATTK(AT_NONE, AD_DISE, 0, 2), NO_ATTK, NO_ATTK, NO_ATTK, NO_ATTK,
+          NO_ATTK),
+        SIZ(50, 30, MS_SILENT, MZ_SMALL), MR_POISON, 0,
+        M1_BREATHLESS | M1_NOEYES | M1_NOLIMBS | M1_NOHEAD | M1_MINDLESS
+            | M1_NOTAKE,
+        M2_HOSTILE | M2_NEUTER, 0, 8, CLR_BLACK, BLACK_MOLD),
     /*
      * Gnomes
      */
@@ -2954,7 +2972,7 @@
         M2_NOPOLY | M2_HUMAN | M2_PNAME | M2_PEACEFUL | M2_STRONG | M2_MALE
             | M2_COLLECT | M2_MAGIC,
         M3_CLOSE | M3_INFRAVISIBLE, 22, HI_LORD, SHAMAN_KARNOV),
-#if 0 /* OBSOLETE */
+#if 0 /* OBSOLETE -- leaders for 3.1.x/3.2.x elf quest when elf was a role */
     /* Two for elves - one of each sex.
      */
     MON("Earendil", S_HUMAN,
@@ -3112,7 +3130,7 @@
             | M2_NASTY | M2_GREEDY | M2_JEWELS | M2_MAGIC,
         M3_WANTSARTI | M3_WAITFORU | M3_INFRAVISIBLE, 23, HI_LORD,
         TIAMAT),
-#if 0 /* OBSOLETE */
+#if 0 /* OBSOLETE -- nemesis for 3.1.x/3.2.x elf quest when elf was a role */
     MON("Goblin King", S_ORC,
         LVL(15, 12, 10, 0, -15), (G_NOGEN | G_UNIQ),
         A(ATTK(AT_WEAP, AD_PHYS, 2, 6), ATTK(AT_WEAP, AD_PHYS, 2, 6),
@@ -3243,7 +3261,7 @@
         M1_HUMANOID | M1_OMNIVORE,
         M2_NOPOLY | M2_HUMAN | M2_PEACEFUL | M2_STRONG | M2_COLLECT,
         M3_INFRAVISIBLE, 7, HI_DOMESTIC, NEANDERTHAL),
-#if 0 /* OBSOLETE */
+#if 0 /* OBSOLETE -- guardian for 3.1.x/3.2.x elf quest when elf was a role */
     MON("High-elf", S_HUMAN,
         LVL(5, 12, 10, 10, -7), G_NOGEN,
         A(ATTK(AT_WEAP, AD_PHYS, 2, 4), ATTK(AT_MAGC, AD_CLRC, 0, 0),

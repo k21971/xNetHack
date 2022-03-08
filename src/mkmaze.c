@@ -26,6 +26,8 @@ static void stolen_booty(void);
 static void maze_remove_deadends(xchar);
 static boolean mazeroom_eligible(void);
 static void destroy_wall(xchar, xchar);
+static void maze_touchup_rooms(int);
+static void check_maze_coverage(int, int, int, int);
 
 /* adjust a coordinate one step in the specified direction */
 #define mz_move(X, Y, dir) \
@@ -352,7 +354,7 @@ put_lregion_here(
                It might still fail if there's a dungeon feature here. */
             struct trap *t = t_at(x, y);
 
-            if (t && t->ttyp != MAGIC_PORTAL && t->ttyp != VIBRATING_SQUARE)
+            if (t && !undestroyable_trap(t->ttyp))
                 deltrap_with_ammo(t, DELTRAP_DESTROY_AMMO);
             if (bad_location(x, y, nlx, nly, nhx, nhy))
                 return FALSE;
@@ -366,7 +368,7 @@ put_lregion_here(
         if ((mtmp = m_at(x, y)) != 0) {
             /* move the monster if no choice, or just try again */
             if (oneshot) {
-                if (!rloc(mtmp, TRUE))
+                if (!rloc(mtmp, RLOC_NOMSG))
                     m_into_limbo(mtmp);
             } else
                 return FALSE;
@@ -436,9 +438,17 @@ baalz_fixup(void)
                     g.bughack.delarea.x2 = x, g.bughack.delarea.y2 = y;
             } else if (levl[x][y].typ == IRONBARS) {
                 /* novelty effect; allowing digging in front of 'eyes' */
-                levl[x - 1][y].wall_info &= ~W_NONDIGGABLE;
-                if (isok(x - 2, y))
-                    levl[x - 2][y].wall_info &= ~W_NONDIGGABLE;
+                if (isok(x - 1, y)
+                    && (levl[x - 1][y].wall_info & W_NONDIGGABLE) != 0) {
+                    levl[x - 1][y].wall_info &= ~W_NONDIGGABLE;
+                    if (isok(x - 2, y))
+                        levl[x - 2][y].wall_info &= ~W_NONDIGGABLE;
+                } else if (isok(x + 1, y)
+                    && (levl[x + 1][y].wall_info & W_NONDIGGABLE) != 0) {
+                    levl[x + 1][y].wall_info &= ~W_NONDIGGABLE;
+                    if (isok(x + 2, y))
+                        levl[x + 2][y].wall_info &= ~W_NONDIGGABLE;
+                }
             }
 
     wallification(max(g.bughack.inarea.x1 - 2, 1),
@@ -450,20 +460,21 @@ baalz_fixup(void)
        both top and bottom gets a bogus extra connection to room area,
        producing unwanted rectangles; change back to separated legs */
     x = g.bughack.delarea.x1, y = g.bughack.delarea.y1;
-    if (isok(x, y) && levl[x][y].typ == TLWALL
+    if (isok(x, y) && (levl[x][y].typ == TLWALL || levl[x][y].typ == TRWALL)
         && isok(x, y + 1) && levl[x][y + 1].typ == TUWALL) {
-        levl[x][y].typ = BRCORNER;
+        levl[x][y].typ = (levl[x][y].typ == TLWALL) ? BRCORNER : BLCORNER;
         levl[x][y + 1].typ = HWALL;
         if ((mtmp = m_at(x, y)) != 0) /* something at temporary pool... */
-            (void) rloc(mtmp, FALSE);
+            (void) rloc(mtmp, RLOC_ERR|RLOC_NOMSG);
     }
+
     x = g.bughack.delarea.x2, y = g.bughack.delarea.y2;
-    if (isok(x, y) && levl[x][y].typ == TLWALL
+    if (isok(x, y) && (levl[x][y].typ == TLWALL || levl[x][y].typ == TRWALL)
         && isok(x, y - 1) && levl[x][y - 1].typ == TDWALL) {
-        levl[x][y].typ = TRCORNER;
+        levl[x][y].typ = (levl[x][y].typ == TLWALL) ? TRCORNER : TLCORNER;
         levl[x][y - 1].typ = HWALL;
         if ((mtmp = m_at(x, y)) != 0) /* something at temporary pool... */
-            (void) rloc(mtmp, FALSE);
+            (void) rloc(mtmp, RLOC_ERR|RLOC_NOMSG);
     }
 
     /* reset bughack region; set low end to <COLNO,ROWNO> so that
@@ -607,7 +618,7 @@ check_ransacked(char * s)
 }
 
 #define ORC_LEADER 1
-static const char *orcfruit[] = { "paddle cactus", "dwarven root" };
+static const char *const orcfruit[] = { "paddle cactus", "dwarven root" };
 
 static void
 migrate_orc(struct monst* mtmp, unsigned long mflags)
@@ -1004,9 +1015,16 @@ static void
 destroy_wall(xchar x, xchar y)
 {
     /* don't destroy walls of the maze border */
-    if (maze_edge(x, y))
+    if (maze_edge(x, y)) {
+        /* convert corners to straight border */
+        if (levl[x][y].typ == TUWALL || levl[x][y].typ == TDWALL)
+            levl[x][y].typ = HWALL;
+        else if (levl[x][y].typ == TLWALL || levl[x][y].typ == TRWALL)
+            levl[x][y].typ = VWALL;
         return;
-    if (IS_WALL(levl[x][y].typ) || IS_DOOR(levl[x][y].typ)) {
+    }
+    if (IS_WALL(levl[x][y].typ) || IS_DOOR(levl[x][y].typ)
+        || levl[x][y].typ == SDOOR) {
         levl[x][y].typ = ROOM;
         levl[x][y].flags = 0; /* clear door mask */
     }
@@ -1052,13 +1070,30 @@ maze_touchup_rooms(int attempts)
         /* Maybe remove the walls for this room. */
         if (rn2(5)) {
             xchar x, y;
-            for (x = g.rooms[i].lx; x <= g.rooms[i].hx; ++x) {
+            for (x = g.rooms[i].lx - 1; x <= g.rooms[i].hx + 1; x++) {
                 destroy_wall(x, g.rooms[i].ly - 1);
                 destroy_wall(x, g.rooms[i].hy + 1);
             }
-            for (y = g.rooms[i].ly; y <= g.rooms[i].hy; ++y) {
+            for (y = g.rooms[i].ly - 1; y <= g.rooms[i].hy + 1; y++) {
                 destroy_wall(g.rooms[i].lx - 1, y);
                 destroy_wall(g.rooms[i].hx + 1, y);
+            }
+        }
+    }
+}
+
+static void
+check_maze_coverage(int x1, int y1, int x2, int y2)
+{
+    int x, y;
+    for (x = x1; x <= x2; x++) {
+        for (y = y1; y <= y2; y++) {
+            if (levl[x][y].typ == STONE
+                /* skip room interiors, in case a themeroom has 'columns' or
+                 * similar decor */
+                && levl[x][y].roomno == NO_ROOM) {
+                impossible("mazewalk unfinished? stone at <%d,%d>", x, y);
+                return;
             }
         }
     }
@@ -1264,8 +1299,10 @@ makemaz(const char *s)
     */
     create_maze(1, 1, !rn2(5));
 
-    if (!g.level.flags.corrmaze)
+    if (!g.level.flags.corrmaze) {
         wallification(2, 2, g.x_maze_max, g.y_maze_max);
+        check_maze_coverage(2, 2, g.x_maze_max, g.y_maze_max);
+    }
 
     mazexy(&mm);
     mkstairs(mm.x, mm.y, 1, (struct mkroom *) 0); /* up */
@@ -1273,6 +1310,9 @@ makemaz(const char *s)
         mazexy(&mm);
         mkstairs(mm.x, mm.y, 0, (struct mkroom *) 0); /* down */
     } else { /* choose "vibrating square" location */
+        /* vibrating square is now set by invocation.lua; however, this code
+         * remains in place so that the game is not unwinnable if invocation.lua
+         * fails to load. */
         stairway *stway;
         int trycnt = 0;
 #define x_maze_min 2
@@ -1311,9 +1351,7 @@ makemaz(const char *s)
                  || abs(x - stway->sx) == abs(y - stway->sy)
                  || distmin(x, y, stway->sx, stway->sy) <= INVPOS_DISTANCE
                  || !SPACE_POS(levl[x][y].typ) || occupied(x, y)));
-        g.inv_pos.x = x;
-        g.inv_pos.y = y;
-        maketrap(g.inv_pos.x, g.inv_pos.y, VIBRATING_SQUARE);
+        maketrap(x, y, VIBRATING_SQUARE);
 #undef INVPOS_X_MARGIN
 #undef INVPOS_Y_MARGIN
 #undef INVPOS_DISTANCE
@@ -1417,7 +1455,7 @@ walkfrom(int x, int y, schar typ)
 void
 walkfrom(int x, int y, schar typ)
 {
-    int q, a, dir;
+    int q, a, dir, move_x, move_y;
     int dirs[4];
 
     if (!typ) {
@@ -1434,17 +1472,17 @@ walkfrom(int x, int y, schar typ)
     }
 
     while (1) {
-        q = 0;
+        q = 0, move_x = x, move_y = y;
         for (a = 0; a < 4; a++)
             if (okay(x, y, a))
                 dirs[q++] = a;
         if (!q)
             return;
         dir = dirs[rn2(q)];
-        mz_move(x, y, dir);
-        levl[x][y].typ = typ;
-        mz_move(x, y, dir);
-        walkfrom(x, y, typ);
+        mz_move(move_x, move_y, dir);
+        levl[move_x][move_y].typ = typ;
+        mz_move(move_x, move_y, dir);
+        walkfrom(move_x, move_y, typ);
     }
 }
 #endif /* ?MICRO */
@@ -1898,41 +1936,6 @@ restore_waterlevel(NHFILE* nhfp)
     b->next = (struct bubble *) 0;
 }
 
-/* Return a string representing the type of liquid at the given x and y.
- * Assumes that the terrain type at this location is in fact some sort of
- * water, lava, or ice. */
-const char *
-waterbody_name(xchar x, xchar y)
-{
-    struct rm *lev;
-    schar ltyp;
-
-    if (!isok(x, y))
-        return "drink"; /* should never happen */
-    lev = &levl[x][y];
-    ltyp = lev->typ;
-    if (ltyp == DRAWBRIDGE_UP)
-        ltyp = db_under_typ(lev->drawbridgemask);
-
-    if (ltyp == LAVAPOOL)
-        return hliquid("lava");
-    else if (ltyp == ICE)
-        return "ice";
-    else if (ltyp == POOL)
-        return "pool of water";
-    else if (ltyp == WATER || Is_waterlevel(&u.uz))
-        ; /* fall through to default return value */
-    else if (Is_juiblex_level(&u.uz))
-        return "swamp";
-    else if (ltyp == MOAT && !Is_medusa_level(&u.uz)
-             /* samurai has two moat spots on quest home level that seem
-                silly if described as such (maybe change them to pools?) */
-             && !(Role_if(PM_SAMURAI) && Is_qstart(&u.uz)))
-        return "moat";
-
-    return hliquid("water");
-}
-
 /* Set the global variable wportal to point to the magic portal on the current
  * level. */
 static void
@@ -2168,7 +2171,7 @@ mv_bubble(struct bubble* b, int dx, int dy, boolean ini)
 
                 /* mnearto() might fail. We can jump right to elemental_clog
                    from here rather than deal_with_overcrowding() */
-                if (!mnearto(mon, cons->x, cons->y, TRUE))
+                if (!mnearto(mon, cons->x, cons->y, TRUE, RLOC_NOMSG))
                     elemental_clog(mon);
                 break;
             }
@@ -2181,7 +2184,7 @@ mv_bubble(struct bubble* b, int dx, int dy, boolean ini)
                 newsym(ux0, uy0); /* clean up old position */
 
                 if (mtmp) {
-                    mnexto(mtmp);
+                    mnexto(mtmp, RLOC_NOMSG);
                 }
                 break;
             }

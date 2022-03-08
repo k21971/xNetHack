@@ -1,10 +1,10 @@
 ## xNetHack 7.0 Changelog
 
-This is a major version of xNetHack. It is based directly on xNetHack 6.0, and
+This is a major version of xNetHack. It is based directly on xNetHack 6.3, and
 is a fork off the vanilla NetHack 3.7.0 development version release.
 
-The most recent vanilla commit incorporated into xNetHack is 583fb60. Note that
-because 3.7.0 is still in development status, xNetHack may contain major changes
+The most recent vanilla commit incorporated into xNetHack is a971244. Note that
+because 3.7.0 is still in development status, xNetHack contains major changes
 including new monsters, new objects, themed rooms, and other things *not*
 documented in this file or other xNetHack changelogs. See doc/fixes37.0 for the
 DevTeam's changes.
@@ -116,6 +116,51 @@ changes:
   and most blobby monsters) that your fingers get slippery. Tins of them are not
   slippery unless the tin preparation method is slippery.
 - Cursed wands explode more often, 1/30 of the time instead of 1/100.
+- The Vibrating Square level is no longer a random maze; the player always
+  generates in one of two small rooms at the bottom, and the square is always
+  found in the center of one of three larger rooms.
+- New monster "black mold": a black F that is sessile and has a passive deathly
+  illness attack. It also causes illness when eaten, and like other molds can be
+  used to ferment fruit juice, turning it into sickness.
+- Air terrain can now appear in levels other than the Planes. In such levels
+  where gravity is in effect, it poses a potentially fatal hazard.
+  - Anyone who steps into air will fall either to a designated level beneath
+    that level, take 12d20 fall damage, become stunned, and wound their legs for
+    60+10d10 turns.
+    or if there is no designated level beneath it, simply die instantly.
+  - Air can be crossed by flying or levitating or being a wumpus, or riding a
+    steed that can cross air.
+  - Items that fall into air fall to the level below, but have a 25% chance of
+    being lost or broken instead. If there is no level below, they are lost
+    forever.
+  - Unique items required to win the game never break when falling to a lower
+    level and will hover in midair if there is no lower level.
+  - Monsters cannot be pushed or hurtle out into midair. This appears to be due
+    to vanilla code (they also cannot hurtle out over water or lava).
+  - It behaves like water or lava in terms of safeguards to prevent stepping
+    into air (requires an m prefix if it would be unsafe, and ParanoidSwim
+    additionally prompts for confirmation even when using an m prefix).
+  - Air is now colored black; this does not change anything when using its
+    default ASCII symbol of " " but will hopefully allow players who wish to
+    define it as something else to show it less ambiguously than if it were
+    cyan.
+- The Vlad's Tower branch now has a fourth level: a deep perilous chasm beneath
+  the tower proper consisting mostly of air terrain. The level beneath it is the
+  level in Gehennom containing the stairs to the tower. There are a couple
+  demons and several vampires and vampire leaders inhabiting this area.
+- New artifact Mirror Brand, an unaligned glass short sword with the following
+  properties:
+  - Confers reflection.
+  - When used to hit a monster wielding a weapon, rolls the damage for that
+    weapon if it had been used against the monster and adds it to the
+    preexisting damage. (This includes base damage, enchantment, object
+    material, and specific weapon-versus-monster damage adjustments such as
+    blessed weapons versus undead.)
+  - Can be dual wielded with the other Brands.
+- New monster "phoenix": an orange B that is quite powerful with difficulty 20.
+  Strongly lawful (thus is likely to be peaceful to lawful players), attacks
+  with bites and fire claws, and explodes in a ball of fire when killed, which
+  produces a phoenix egg that will soon hatch anew into a phoenix.
 - Croesus can move monsters out of his way (the same as the Riders).
 - The base price of magic markers is boosted to 200.
 - Randomly generated paper bags may contain a potion of booze.
@@ -189,6 +234,8 @@ changes:
   chance to avoid getting stunned.
 - Nazgul can innately see invisible.
 - On February 2 (Groundhog Day), woodchucks can randomly generate.
+- Foocubi can once again drain or raise maximum Pw. It works the same as vanilla
+  (-d10 for a bad result and +d5 for a good result).
 
 
 ### Interface changes
@@ -233,6 +280,10 @@ changes:
   based on the weapon, attack type, or monster making the attack.
 - Add the descriptive misses system, which changes some "X misses Y" messages
   into ones about some piece of the defender's gear blocking the attack.
+- More hallucinatory monsters, shirts, epitaphs, random engravings, rumors,
+  hallucinatory blasts, and tin labels.
+- Three more major Oracle consultations.
+
 
 ### Architectural changes
 

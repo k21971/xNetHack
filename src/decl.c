@@ -1,4 +1,4 @@
-/* NetHack 3.7	decl.c	$NHDT-Date: 1606919256 2020/12/02 14:27:36 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.221 $ */
+/* NetHack 3.7	decl.c	$NHDT-Date: 1645000574 2022/02/16 08:36:14 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.248 $ */
 /* Copyright (c) Stichting Mathematisch Centrum, Amsterdam, 1985. */
 /*-Copyright (c) Michael Allison, 2009. */
 /* NetHack may be freely redistributed.  See license for details. */
@@ -38,24 +38,6 @@ NEARDATA struct obj *uwep, *uarm, *uswapwep,
     *uright, *uleft, *ublindf, *uchain, *uball;
 
 struct engr *head_engr;
-
-#ifdef TEXTCOLOR
-/*
- *  This must be the same order as used for buzz() in zap.c.
- */
-const int zapcolors[NUM_ZAP] = {
-    HI_ZAP,     /* 0 - missile */
-    CLR_ORANGE, /* 1 - fire */
-    CLR_WHITE,  /* 2 - frost */
-    HI_ZAP,     /* 3 - sleep */
-    CLR_BLACK,  /* 4 - death */
-    CLR_WHITE,  /* 5 - lightning */
-    /* 3.6.3: poison gas zap used to be yellow and acid zap was green,
-       which conflicted with the corresponding dragon colors */
-    CLR_GREEN,  /* 6 - poison gas */
-    CLR_YELLOW, /* 7 - acid */
-};
-#endif /* text color */
 
 const int shield_static[SHIELD_COUNT] = {
     S_ss1, S_ss2, S_ss3, S_ss2, S_ss1, S_ss2, S_ss4, /* 7 per row */
@@ -168,7 +150,7 @@ const struct Role urole_init_data = {
       { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 } },
     "L", "N", "C",
     "Xxx", "home", "locate",
-    NON_PM, NON_PM, NON_PM, NON_PM, NON_PM, NON_PM, NON_PM, NON_PM,
+    NON_PM, NON_PM, NON_PM, NON_PM, NON_PM, NON_PM, NON_PM,
     0, 0, 0, 0,
     /* Str Int Wis Dex Con Cha */
     { 7, 7, 7, 7, 7, 7 },
@@ -186,7 +168,6 @@ const struct Race urace_init_data = {
     "something",
     "Xxx",
     { 0, 0 },
-    NON_PM,
     NON_PM,
     NON_PM,
     NON_PM,
@@ -243,6 +224,7 @@ const struct instance_globals g_init = {
     WIN_ERR, /* en_win */
     FALSE, /* en_via_menu */
     UNDEFINED_VALUE, /* last_command_count */
+    NULL, /* ext_tlist */
 
     /* dbridge.c */
     UNDEFINED_VALUES, /* occupants */
@@ -273,7 +255,6 @@ const struct instance_globals g_init = {
     NULL, /* stairs */
     DUMMY, /* smeq */
     0, /* doorindex */
-    NULL, /* save_cm */
     0, /* done_money */
     0L, /* domove_attempting */
     0L, /* domove_succeeded */
@@ -317,8 +298,11 @@ const struct instance_globals g_init = {
     DUMMY, /* rooms */
     NULL, /* subrooms */
     UNDEFINED_VALUES, /* level */
-    1, /* moves */
-    0, /* wailmsg */
+    1L, /* moves; misnamed turn counter */
+    1L << 3, /* hero_seq: sequence number for hero movement, 'moves*8 + n'
+              * where n is usually 1, sometimes 2 when Fast/Very_fast, maybe
+              * higher if polymorphed into something that's even faster */
+    0L, /* wailmsg */
     NULL, /* migrating_objs */
     NULL, /* billobjs */
 #if defined(MICRO) || defined(WIN32)
@@ -410,11 +394,13 @@ const struct instance_globals g_init = {
     VANQ_MLVL_MNDX,
 
     /* files.c */
+    NULL, /* cmdline_rcfile */
     UNDEFINED_VALUES, /* wizkit */
     UNDEFINED_VALUE, /* lockptr */
     NULL, /* config_section_chosen */
     NULL, /* config_section_current */
     0, /* nesting */
+    0, /* no_sound_notified */
     0, /* symset_count */
     FALSE, /* chosen_symset_start */
     FALSE, /* chosen_symset_end */
@@ -473,7 +459,6 @@ const struct instance_globals g_init = {
 
     /* mkmaze.c */
     { {COLNO, ROWNO, 0, 0}, {COLNO, ROWNO, 0, 0} }, /* bughack */
-    FALSE, /* was_waterlevel */
     UNDEFINED_PTR, /* bbubbles */
     UNDEFINED_PTR, /* ebubbles */
     UNDEFINED_PTR, /* wportal */
@@ -529,6 +514,7 @@ const struct instance_globals g_init = {
     FALSE, /* opt_initial */
     FALSE, /* opt_from_file */
     FALSE, /* opt_need_redraw */
+    FALSE, /* opt_need_glyph_reset */
     FALSE, /* save_menucolors */
     (struct menucoloring *) 0, /* save_colorings */
     (struct menucoloring *) 0, /* color_colorings */
@@ -543,6 +529,8 @@ const struct instance_globals g_init = {
     UNDEFINED_VALUE, /* class_filter */
     UNDEFINED_VALUE, /* bucx_filter */
     UNDEFINED_VALUE, /* shop_filter */
+    UNDEFINED_VALUE, /* picked_filter */
+    UNDEFINED_VALUE, /* loot_reset_justpicked */
 
     /* pline.c */
     0, /* pline_flags */
@@ -553,6 +541,7 @@ const struct instance_globals g_init = {
 #endif
     (char *) 0, /* you_buf */
     0, /* you_buf_siz */
+    NULL, /* gamelog */
 
     /* polyself.c */
     0, /* sex_change_ok */
@@ -581,11 +570,12 @@ const struct instance_globals g_init = {
     NULL, /* regions */
     0, /* n_regions */
     0, /* max_regions */
+    FALSE, /* gas_cloud_diss_within */
+    0, /* gas_cloud_diss_seen */
 
     /* restore.c */
     0, /* n_ids_mapped */
     0, /* id_map */
-    FALSE, /* restoring */
     UNDEFINED_PTR, /* oldfruit */
     UNDEFINED_VALUE, /* omoves */
 
@@ -651,7 +641,7 @@ const struct instance_globals g_init = {
     1, /* timer_id */
 
     /* topten.c */
-    WIN_ERR, /* topten */
+    WIN_ERR, /* toptenwin */
 
     /* trap.c */
     0, /* force_mintrap */
@@ -704,10 +694,6 @@ const struct const_globals cg = {
 char *fuzzer_log[FUZZER_LOG_SIZE] = DUMMY;
 long fuzzer_log_idx = 0;
 
-/* glyph, color, ttychar, symidx, glyphflags */
-const glyph_info nul_glyphinfo =
-    { NO_GLYPH, NO_COLOR, ' ', 0, MG_UNEXPL };
-
 #define ZERO(x) memset(&x, 0, sizeof(x))
 
 void
@@ -724,13 +710,13 @@ decl_globals_init(void)
     g.valuables[2].size = 0;
 
     if (g_init.magic != IVMAGIC) {
-        printf("decl_globals_init: g_init.magic in unexpected state (%lx)\n",
-                g_init.magic);
+        raw_printf(
+                 "decl_globals_init: g_init.magic in unexpected state (%lx).",
+                   g_init.magic);
         exit(1);
     }
-
     if (g_init.havestate != TRUE) {
-        printf("decl_globals_init: g_init..havestate not TRUE\n");
+        raw_print("decl_globals_init: g_init.havestate not True.");
         exit(1);
     }
 

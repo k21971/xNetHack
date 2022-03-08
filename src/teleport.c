@@ -9,6 +9,7 @@ static boolean tele_jump_ok(int, int, int, int);
 static boolean teleok(int, int, boolean);
 static void vault_tele(void);
 static boolean rloc_pos_ok(int, int, struct monst *);
+static void rloc_to_core(struct monst *, int, int, unsigned);
 static void mvault_tele(struct monst *);
 
 /* teleporting is prevented on this level for this monster? */
@@ -82,12 +83,15 @@ goodpos(int x, int y, struct monst* mtmp, long gpflags)
             if (mtmp == &g.youmonst)
                 return (Swimming || Amphibious
                         || (!Is_waterlevel(&u.uz)
+                            && !(levl[x][y].typ == WATER)
                             /* water on the Plane of Water has no surface
                                so there's no way to be on or above that */
                             && (Levitation || Flying || Wwalking)));
             else
                 return (is_swimmer(mdat)
-                        || (!Is_waterlevel(&u.uz) && !grounded(mdat)));
+                        || (!Is_waterlevel(&u.uz)
+                            && !(levl[x][y].typ == WATER)
+                            && !grounded(mdat)));
         } else if (mdat->mlet == S_EEL && rn2(13) && !ignorewater) {
             return FALSE;
         } else if (is_lava(x, y)) {
@@ -103,6 +107,8 @@ goodpos(int x, int y, struct monst* mtmp, long gpflags)
             else
                 return (!grounded(mdat) || likes_lava(mdat));
         }
+        if (is_open_air(x, y) && grounded(mdat))
+            return FALSE;
         if (passes_walls(mdat) && may_passwall(x, y))
             return TRUE;
         if (amorphous(mdat) && closed_door(x, y))
@@ -139,7 +145,7 @@ enexto(
 boolean
 enexto_core(
     coord *cc,
-    xchar xx, 
+    xchar xx,
     xchar yy,
     struct permonst *mdat,
     long entflags)
@@ -475,7 +481,7 @@ tele(void)
     scrolltele((struct obj *) 0);
 }
 
-/* teleport the hero; usually discover scroll of teleporation if via scroll */
+/* teleport the hero; usually discover scroll of teleportation if via scroll */
 void
 scrolltele(struct obj* scroll)
 {
@@ -560,7 +566,7 @@ scrolltele(struct obj* scroll)
     (void) safe_teleds(TELEDS_TELEPORT);
 }
 
-/* ^T command; 'm ^T' == choose among several teleport modes */
+/* the #teleport command; 'm ^T' == choose among several teleport modes */
 int
 dotelecmd(void)
 {
@@ -576,7 +582,7 @@ dotelecmd(void)
 
     /* normal mode; ignore 'm' prefix if it was given */
     if (!wizard)
-        return dotele(FALSE);
+        return dotele(FALSE) ? ECMD_TIME : ECMD_OK;
 
     added = hidden = NOOP_SPELL;
     save_HTele = HTeleportation, save_ETele = ETeleportation;
@@ -636,7 +642,7 @@ dotelecmd(void)
             /* preselected one was explicitly chosen and got toggled off */
             tmode = 'w';
         } else { /* ESC */
-            return 0;
+            return ECMD_OK;
         }
         switch (tmode) {
         case 'n':
@@ -668,7 +674,7 @@ dotelecmd(void)
         /* can't both be non-NOOP so addition will yield the non-NOOP one */
         (void) tport_spell(added + hidden - NOOP_SPELL);
 
-    return res;
+    return res ? ECMD_TIME : ECMD_OK;
 }
 
 int
@@ -740,6 +746,9 @@ dotele(
            but they both yield the same result.] */
 #define spellev(spell_otyp) ((int) objects[spell_otyp].oc_level)
         energy = 5 * spellev(SPE_TELEPORT_AWAY);
+#if 0
+        /* the addition of !break_the_rules to the outer if-block in
+           1ada454f rendered this dead code */
         if (break_the_rules) {
             if (!castit)
                 energy = 0;
@@ -750,7 +759,9 @@ dotele(
                having enough to cast (which also uses the move) */
             else if (u.uen < energy)
                 energy = u.uen;
-        } else if (u.uhunger <= 10) {
+        } else
+#endif
+        if (u.uhunger <= 10) {
             cantdoit = "are too weak from hunger";
         } else if (ACURR(A_STR) < 4) {
             cantdoit = "lack the strength";
@@ -769,7 +780,7 @@ dotele(
         if (castit) {
             /* energy cost is deducted in spelleffects() */
             exercise(A_WIS, TRUE);
-            if (spelleffects(sp_no, TRUE))
+            if ((spelleffects(sp_no, TRUE) & ECMD_TIME))
                 return 1;
             else if (!break_the_rules)
                 return 0;
@@ -1152,7 +1163,7 @@ level_tele_trap(struct trap* trap, unsigned int trflags)
 /* check whether monster can arrive at location <x,y> via Tport (or fall) */
 static boolean
 rloc_pos_ok(
-    register int x, 
+    register int x,
     register int y, /* x,y - coordinates of candidate location */
     struct monst *mtmp)
 {
@@ -1218,16 +1229,31 @@ rloc_pos_ok(
  * a value because mtmp is a migrating_mon.  Worm tails are always
  * placed randomly around the head of the worm.
  */
-void
-rloc_to(struct monst* mtmp, register int x, register int y)
+static void
+rloc_to_core(struct monst* mtmp,
+             int x, int y,
+             unsigned int rlocflags)
 {
     register int oldx = mtmp->mx, oldy = mtmp->my;
     boolean resident_shk = mtmp->isshk && inhishop(mtmp);
+    boolean preventmsg = (rlocflags & RLOC_NOMSG) != 0;
+    boolean vanishmsg = (rlocflags & RLOC_MSG) != 0;
+    boolean appearmsg = (mtmp->mstrategy & STRAT_APPEARMSG) != 0;
+    boolean domsg = !g.in_mklev && (vanishmsg || appearmsg) && !preventmsg;
+    boolean telemsg = FALSE;
 
     if (x == mtmp->mx && y == mtmp->my && m_at(x, y) == mtmp)
         return; /* that was easy */
 
     if (oldx) { /* "pick up" monster */
+        if (domsg && canspotmon(mtmp)) {
+            if (couldsee(x, y) || sensemon(mtmp)) {
+                telemsg = TRUE;
+            } else {
+                pline("%s vanishes!", Monnam(mtmp));
+            }
+        }
+
         if (mtmp->wormno) {
             remove_worm(mtmp);
         } else {
@@ -1247,7 +1273,7 @@ rloc_to(struct monst* mtmp, register int x, register int y)
         if (u.uswallow) {
             u_on_newpos(mtmp->mx, mtmp->my);
             docrt();
-        } else if (distu(mtmp->mx, mtmp->my) > 2) {
+        } else if (!next2u(mtmp->mx, mtmp->my)) {
            unstuck(mtmp);
         }
     }
@@ -1255,6 +1281,24 @@ rloc_to(struct monst* mtmp, register int x, register int y)
     maybe_unhide_at(x, y);
     newsym(x, y);      /* update new location */
     set_apparxy(mtmp); /* orient monster */
+    if (domsg && (canspotmon(mtmp) || appearmsg)) {
+        mtmp->mstrategy &= ~STRAT_APPEARMSG; /* one chance only */
+        if (telemsg && (couldsee(x, y) || sensemon(mtmp))) {
+            pline("%s vanishes and reappears%s.",
+                  Monnam(mtmp),
+                  next2u(x, y) ? " next to you"
+                  : (distu(x, y) <= (BOLT_LIM * BOLT_LIM)) ? " close by"
+                  : (distu(x, y) < distu(oldx, oldy)) ? " closer to you"
+                  : " further away");
+        } else {
+            pline("%s %s%s%s!",
+                  appearmsg ? Amonnam(mtmp) : Monnam(mtmp),
+                  appearmsg ? "suddenly " : "",
+                  !Blind ? "appears" : "arrives",
+                  next2u(x, y) ? " next to you"
+                  : (distu(x, y) <= (BOLT_LIM * BOLT_LIM)) ? " close by" : "");
+        }
+    }
 
     /* shopkeepers will only teleport if you zap them with a wand of
        teleportation or if they've been transformed into a jumpy monster;
@@ -1265,6 +1309,18 @@ rloc_to(struct monst* mtmp, register int x, register int y)
     /* trapped monster teleported away */
     if (mtmp->mtrapped && !mtmp->wormno)
         (void) mintrap(mtmp);
+}
+
+void
+rloc_to(struct monst *mtmp, int x, int y)
+{
+    rloc_to_core(mtmp, x, y, RLOC_NOMSG);
+}
+
+void
+rloc_to_flag(struct monst *mtmp, int x, int y, unsigned int rlocflags)
+{
+    rloc_to_core(mtmp, x, y, rlocflags);
 }
 
 static stairway *
@@ -1280,10 +1336,11 @@ stairway_find_forwiz(boolean isladder, boolean up)
 
 /* place a monster at a random location, typically due to teleport */
 /* return TRUE if successful, FALSE if not */
+/* rlocflags is RLOC_foo flags */
 boolean
 rloc(
     struct monst *mtmp, /* mx==0 implies migrating monster arrival */
-    boolean suppress_impossible)
+    unsigned int rlocflags)
 {
     register int x, y, trycount;
 
@@ -1329,12 +1386,12 @@ rloc(
                 goto found_xy;
 
     /* level either full of monsters or somehow faulty */
-    if (!suppress_impossible)
+    if ((rlocflags & RLOC_ERR) != 0)
         impossible("rloc(): couldn't relocate monster");
     return FALSE;
 
  found_xy:
-    rloc_to(mtmp, x, y);
+    rloc_to_core(mtmp, x, y, rlocflags);
     return TRUE;
 }
 
@@ -1348,7 +1405,7 @@ mvault_tele(struct monst* mtmp)
         rloc_to(mtmp, c.x, c.y);
         return;
     }
-    (void) rloc(mtmp, TRUE);
+    (void) rloc(mtmp, RLOC_NONE);
 }
 
 boolean
@@ -1381,7 +1438,7 @@ mtele_trap(struct monst* mtmp, struct trap* trap, int in_sight)
         if (trap->once)
             mvault_tele(mtmp);
         else
-            (void) rloc(mtmp, TRUE);
+            (void) rloc(mtmp, RLOC_NONE);
 
         if (in_sight) {
             if (canseemon(mtmp))
@@ -1628,16 +1685,16 @@ u_teleport_mon(struct monst* mtmp, boolean give_feedback)
         if (give_feedback)
             pline("%s resists your magic!", Monnam(mtmp));
         return FALSE;
-    } else if (u.uswallow && mtmp == u.ustuck && noteleport_level(mtmp)) {
+    } else if (engulfing_u(mtmp) && noteleport_level(mtmp)) {
         if (give_feedback)
             You("are no longer inside %s!", mon_nam(mtmp));
         unstuck(mtmp);
-        (void) rloc(mtmp, TRUE);
+        (void) rloc(mtmp, RLOC_MSG);
     } else if (is_rider(mtmp->data) && rn2(13)
                && enexto(&cc, u.ux, u.uy, mtmp->data))
         rloc_to(mtmp, cc.x, cc.y);
     else
-        (void) rloc(mtmp, TRUE);
+        (void) rloc(mtmp, RLOC_MSG);
     return TRUE;
 }
 

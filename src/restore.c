@@ -11,10 +11,6 @@ extern int dotcnt; /* shared with save */
 extern int dotrow; /* shared with save */
 #endif
 
-#ifdef USE_TILES
-extern void substitute_tiles(d_level *); /* from tile.c */
-#endif
-
 #ifdef ZEROCOMP
 static void zerocomp_minit(void);
 static void zerocomp_mread(int, genericptr_t, unsigned int);
@@ -34,6 +30,7 @@ static void ghostfruit(struct obj *);
 static boolean restgamestate(NHFILE *, unsigned int *, unsigned int *);
 static void restlevelstate(unsigned int, unsigned int);
 static int restlevelfile(xchar);
+static void restore_gamelog(NHFILE *);
 static void restore_msghistory(NHFILE *);
 static void reset_oattached_mids(boolean);
 static void rest_levl(NHFILE *, boolean);
@@ -267,7 +264,8 @@ restobjchn(NHFILE* nhfp, boolean frozen)
             otmp2->nobj = otmp;
 
         if (ghostly) {
-            unsigned nid = g.context.ident++;
+            unsigned nid = next_ident();
+
             add_id_mapping(otmp->o_id, nid);
             otmp->o_id = nid;
         }
@@ -418,7 +416,8 @@ restmonchn(NHFILE* nhfp)
             mtmp2->nmon = mtmp;
 
         if (ghostly) {
-            unsigned nid = g.context.ident++;
+            unsigned nid = next_ident();
+
             add_id_mapping(mtmp->m_id, nid);
             mtmp->m_id = nid;
         }
@@ -682,8 +681,12 @@ restgamestate(NHFILE* nhfp, unsigned int* stuckid, unsigned int* steedid)
     restlevchn(nhfp);
     if (nhfp->structlevel) {
         mread(nhfp->fd, (genericptr_t) &g.moves, sizeof g.moves);
-        mread(nhfp->fd, (genericptr_t) &g.quest_status, sizeof (struct q_score));
-        mread(nhfp->fd, (genericptr_t) g.spl_book, (MAXSPELL + 1) * sizeof (struct spell));
+        /* hero_seq isn't saved and restored because it can be recalculated */
+        g.hero_seq = g.moves << 3; /* normally handled in moveloop() */
+        mread(nhfp->fd, (genericptr_t) &g.quest_status,
+              sizeof (struct q_score));
+        mread(nhfp->fd, (genericptr_t) g.spl_book,
+              (MAXSPELL + 1) * sizeof (struct spell));
     }
     restore_artifacts(nhfp);
     restore_oracles(nhfp);
@@ -705,6 +708,7 @@ restgamestate(NHFILE* nhfp, unsigned int* stuckid, unsigned int* steedid)
     restnames(nhfp);
     restore_waterlevel(nhfp);
     restore_msghistory(nhfp);
+    restore_gamelog(nhfp);
     /* must come after all mons & objs are restored */
     relink_timers(FALSE);
     relink_light_sources(FALSE);
@@ -771,7 +775,9 @@ dorecover(NHFILE* nhfp)
     int rtmp;
     struct obj *otmp;
 
+    /* suppress map display if some part of the code tries to update that */
     g.program_state.restoring = 1;
+
     get_plname_from_file(nhfp, g.plname);
     getlev(nhfp, 0, (xchar) 0);
     if (!restgamestate(nhfp, &stuckid, &steedid)) {
@@ -863,9 +869,7 @@ dorecover(NHFILE* nhfp)
 
     if (!wizard && !discover)
         (void) delete_savefile();
-#ifdef USE_TILES
-    substitute_tiles(&u.uz);
-#endif
+    reset_glyphmap(gm_levelchange);
     max_rank_sz(); /* to recompute g.mrank_sz (botl.c) */
     init_oclass_probs(); /* recompute g.oclass_prob_totals[] */
     /* take care of iron ball & chain */
@@ -909,20 +913,17 @@ rest_stairs(NHFILE* nhfp)
 {
     int buflen = 0;
     stairway stway = UNDEFINED_VALUES;
-    int len = 0;
     stairway *newst;
 
     stairway_free_all();
     while (1) {
         if (nhfp->structlevel) {
-            len += (int) sizeof(buflen);
             mread(nhfp->fd, (genericptr_t) &buflen, sizeof buflen);
         }
 
         if (buflen == -1)
             break;
 
-        len += (int) sizeof (stairway);
         if (nhfp->structlevel) {
             mread(nhfp->fd, (genericptr_t) &stway, sizeof (stairway));
         }
@@ -1247,6 +1248,29 @@ get_plname_from_file(NHFILE* nhfp, char *plbuf)
         (void) read(nhfp->fd, (genericptr_t) plbuf, pltmpsiz);
     }
     return;
+}
+
+static void
+restore_gamelog(NHFILE* nhfp)
+{
+    int slen = 0;
+    char msg[BUFSZ*2];
+    struct gamelog_line tmp;
+
+    while (1) {
+        if (nhfp->structlevel)
+            mread(nhfp->fd, (genericptr_t)&slen, sizeof(slen));
+        if (slen == -1)
+            break;
+        if (slen > ((BUFSZ*2) - 1))
+            panic("restore_gamelog: msg too big (%d)", slen);
+        if (nhfp->structlevel) {
+            mread(nhfp->fd, (genericptr_t) msg, slen);
+            mread(nhfp->fd, (genericptr_t) &tmp, sizeof(tmp));
+            msg[slen] = '\0';
+            gamelog_add(tmp.flags, tmp.turn, msg);
+        }
+    }
 }
 
 static void
