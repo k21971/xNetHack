@@ -599,12 +599,6 @@ typedef unsigned char uchar;
 
 #endif /* DGAMELAUNCH */
 
-/* End-of-game dump logs showing the map, messages, stats, identified
- * possessions, vanquished monsters, etc. */
-#ifndef DUMPLOG
-#define DUMPLOG
-#endif
-
 /* EXTRA_SANITY_CHECKS adds extra impossible calls,
  * probably not useful for normal play */
 #if (NH_DEVEL_STATUS != NH_STATUS_RELEASED)
