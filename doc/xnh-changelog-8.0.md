@@ -30,6 +30,8 @@ changes:
   - Drum of earthquake 25 => 100
   - Magic whistle 10 => 100
   - Magic flute 36 => 144
+- Enchantment is ignored when wishing for dragon scales.
+- Artifacts created by naming retain the original material of the object.
 
 ### Interface changes
 
@@ -38,6 +40,8 @@ changes:
   tiles for each new glyph.
 - When hallucinating, squeaky boards now appear to be chickens, and squawk
   instead of squeak.
+- #holidays extended command which displays which holidays tracked by the game
+  are active.
 
 ### Architectural changes
 
