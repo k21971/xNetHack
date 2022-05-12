@@ -377,7 +377,8 @@ maketrap(int x, int y, int typ)
     ttmp->dst.dnum = ttmp->dst.dlevel = -1;
     ttmp->madeby_u = 0;
     ttmp->once = 0;
-    ttmp->tseen = (typ == HOLE); /* hide non-holes */
+    /* hide most traps, but not holes or portals */
+    ttmp->tseen = (typ == HOLE || typ == MAGIC_PORTAL);
     ttmp->ttyp = typ;
     set_trap_ammo(ttmp, NULL);
 
@@ -3856,7 +3857,7 @@ domagictrap(void)
         case 10:
             /* sometimes nothing happens */
             break;
-        case 11: /* toggle intrinsic invisibility */
+        case 11: /* temporary intrinsic invisibility, or remove it if it's there */
             You_hear("a low hum.");
             if (!Invis) {
                 if (!Blind)
@@ -3872,7 +3873,7 @@ domagictrap(void)
                 /* If we're invisible from another source */
                 You_feel("a little more %s now.", HInvis ? "obvious" : "hidden");
             }
-            HInvis = HInvis ? 0 : HInvis | FROMOUTSIDE;
+            set_itimeout(&HInvis, HInvis ? 0 : rnd(200) + 200);
             newsym(u.ux, u.uy);
             break;
         case 12: /* a flash of fire */

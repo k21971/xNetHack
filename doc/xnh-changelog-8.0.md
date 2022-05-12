@@ -32,6 +32,14 @@ changes:
   - Magic flute 36 => 144
 - Enchantment is ignored when wishing for dragon scales.
 - Artifacts created by naming retain the original material of the object.
+- Vampires will not move onto sinks, including if they are shapeshifted.
+- Foocubi gain a level when they drain one of yours, making future encounters
+  less likely to go well for you.
+- Magic portals are never hidden; they are readily visible like holes are.
+- Gnomes generated outside the Mines may be carrying a few gems.
+- Eating disenchanter meat while hallucinating will remove the hallucination
+  instead of an intrinsic. If permanently hallucinating, this will break you out
+  of it as well, similar to wielding Grayswandir.
 
 ### Interface changes
 
@@ -42,6 +50,8 @@ changes:
   instead of squeak.
 - #holidays extended command which displays which holidays tracked by the game
   are active.
+- Cold rays and explosions render as bright blue instead of white, to
+  distinguish them from lightning.
 
 ### Architectural changes
 
