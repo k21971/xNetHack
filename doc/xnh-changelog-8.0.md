@@ -40,6 +40,11 @@ changes:
 - Eating disenchanter meat while hallucinating will remove the hallucination
   instead of an intrinsic. If permanently hallucinating, this will break you out
   of it as well, similar to wielding Grayswandir.
+- The Castle drawbridge may fail to close 20% of the time when using the
+  passtune.
+- The Castle drawbridge responds to passtune attempts 2 squares away from
+  either of the two drawbridge squares, instead of only directly adjacent
+  squares.
 
 ### Interface changes
 
@@ -52,6 +57,8 @@ changes:
   are active.
 - Cold rays and explosions render as bright blue instead of white, to
   distinguish them from lightning.
+- Quantum mechanics are given physicist names when farlooked, or "Dr. Science"
+  if cancelled. (Similar to coyotes, not like nymphs or foocubi.)
 
 ### Architectural changes
 
