@@ -130,6 +130,20 @@ boulder_hits_pool(struct obj *otmp, int rx, int ry, boolean pushing)
             obfree(otmp, (struct obj *) 0);
         return TRUE;
     }
+    else if (is_open_air(rx, ry)) {
+        xchar ox = otmp->ox, oy = otmp->oy;
+        obj_extract_self(otmp);
+        otmp->ox = rx, otmp->oy = ry;
+        if (!obj_aireffects(otmp, (pushing || cansee(rx, ry)))) {
+            if (pushing) /* put it back on the floor where it was */
+                place_object(otmp, ox, oy);
+            return FALSE;
+        }
+        maybe_unhide_at(ox, oy);
+        newsym(ox, oy);
+        newsym(rx, ry);
+        return TRUE;
+    }
     return FALSE;
 }
 
@@ -268,6 +282,9 @@ flooreffects(struct obj *obj, int x, int y, const char *verb)
              * through the hole" message, so no need to do it here. */
             res = TRUE;
         }
+    } else if (is_open_air(x, y)) {
+        res = obj_aireffects(obj, cansee(x, y));
+        newsym(x, y);
     } else if (obj->globby) {
         /* Globby things like puddings might stick together */
         while (obj && (otmp = obj_nexto_xy(obj, x, y, TRUE)) != 0) {
@@ -277,10 +294,6 @@ flooreffects(struct obj *obj, int x, int y, const char *verb)
             (void) obj_meld(&obj, &otmp);
         }
         res = (boolean) !obj;
-    }
-    else if (is_open_air(x, y)) {
-        obj_aireffects(obj, cansee(x, y));
-        res = TRUE;
     }
 
     g.bhitpos = save_bhitpos;
@@ -2352,12 +2365,16 @@ heal_legs(
 }
 
 /* Object falls into open air. */
-void
+boolean
 obj_aireffects(struct obj *obj, boolean talk)
 {
     boolean fell = TRUE;
+    const char *it_falls = Tobjnam(obj, "fall"),
+               *disappears = otense(obj, "disappear");
+
     if ((breaktest(obj) || !rn2(4))
-        && !(obj->oartifact || objects[obj->otyp].oc_unique)) {
+        && !(obj->oartifact || objects[obj->otyp].oc_unique
+             || obj == uball || obj == uchain)) {
         delobj(obj);
         /* it will break, but no messages since it'll be really far away by
          * then */
@@ -2370,24 +2387,52 @@ obj_aireffects(struct obj *obj, boolean talk)
              * weirdly hang there in midair */
             if (objects[obj->otyp].oc_unique) {
                 if (talk)
-                    pline("For some reason, %s hovers in midair.",
-                        the(xname(obj)));
+                    pline("For some reason, %s %s in midair.",
+                          the(xname(obj)), otense(obj, "hover"));
+                fell = FALSE;
+            }
+            else if (obj == uball || obj == uchain) {
+                if (obj == uball && !Levitation) {
+                    pline("%s away, dragging you into the abyss.", it_falls);
+                    /* force hero to fall now if the iron ball hasn't been
+                       thrown; throwit(dothrow.c) will move hero and call
+                       spoteffects later, so avoid duplication */
+                    if (uball != g.thrownobj) {
+                        u_aireffects();
+                    }
+                }
                 fell = FALSE;
             }
             else
                 delobj(obj);
         }
         else {
-            add_to_migration(obj);
-            obj->ox = dest.dnum;
-            obj->oy = dest.dlevel;
-            obj->migrateflags = MIGR_RANDOM;
+            if (obj == uball || obj == uchain) {
+                if (obj == uball && !Levitation) {
+                    pline("%s away, and %s you down with %s!",
+                          it_falls, otense(obj, "yank"),
+                          obj->quan > 1L ? "them" : "it");
+                    if (uball != g.thrownobj) {
+                        u_aireffects();
+                    }
+                }
+                fell = FALSE; /* either doesn't fall at all (if levitating),
+                               * or doesn't fall by itself */
+            }
+            else {
+                add_to_migration(obj);
+                if (obj->otyp == BOULDER)
+                    obj->next_boulder = 0;
+                obj->ox = dest.dnum;
+                obj->oy = dest.dlevel;
+                obj->migrateflags = MIGR_RANDOM;
+            }
         }
     }
     if (fell && talk) {
-        pline("%s %s away and %s.", The(xname(obj)),
-                otense(obj, "fall"), otense(obj, "disappear"));
+        pline("%s away and %s.", it_falls, disappears);
     }
+    return fell;
 }
 
 /* Restore the Valkyrie locate level after the nemesis is killed;

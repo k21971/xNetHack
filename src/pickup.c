@@ -37,6 +37,7 @@ static int out_container(struct obj *);
 static long mbag_item_gone(int, struct obj *, boolean);
 static int stash_ok(struct obj *);
 static void explain_container_prompt(boolean);
+static boolean transfer_container_available(void);
 static boolean select_transfer_container(void);
 static int traditional_loot(boolean);
 static int menu_loot(int, boolean);
@@ -1758,6 +1759,7 @@ thiefstone_teleport(struct obj* stone, struct obj* obj, boolean dobill)
                         end_burn(obj, TRUE);
                     add_to_container(cobj, obj);
                     cobj->owt = weight(cobj);
+                    cobj->cknown = 0; /* hero hasn't seen new contents */
                     return;
                 }
             }
@@ -2898,7 +2900,8 @@ in_container(struct obj *obj)
 
     if (g.current_container) {
         Strcpy(buf, the(xname(g.current_container)));
-        You("put %s into %s.", doname(obj), buf);
+        You("%s %s into %s.", g.transfer_container ? "transfer" : "put",
+            doname(obj), buf);
 
         /* gold in container always needs to be added to credit */
         if (floor_container && obj->oclass == COIN_CLASS)
@@ -3194,7 +3197,7 @@ use_container(
 {
     struct obj *otmp, *obj = *objp;
     boolean quantum_cat, cursed_mbag, loot_out, loot_in, loot_in_first,
-        stash_one, inokay, outokay, outmaybe;
+        stash_one, inokay, outokay, outmaybe, tranokay;
     char c, emptymsg[BUFSZ], qbuf[QBUFSZ], pbuf[QBUFSZ], xbuf[QBUFSZ];
     int used = ECMD_OK;
     long loss;
@@ -3290,6 +3293,7 @@ use_container(
      */
     for (;;) { /* repeats iff '?' or ':' gets chosen */
         outmaybe = (outokay || !g.current_container->cknown);
+        tranokay = (outmaybe && transfer_container_available());
         if (!outmaybe)
             (void) safe_qbuf(qbuf, (char *) 0, " is empty.  Do what with it?",
                              g.current_container, Yname2, Ysimple_name2,
@@ -3317,7 +3321,7 @@ use_container(
             Strcat(inokay ? pbuf : xbuf, "i");   /* put in */
             Strcat(outmaybe ? pbuf : xbuf, "b"); /* both */
             Strcat(inokay ? pbuf : xbuf, "rs");  /* reversed, stash */
-            Strcat(inokay ? pbuf : xbuf, "t");   /* transfer */
+            Strcat(tranokay ? pbuf : xbuf, "t"); /* transfer */
             Strcat(pbuf, " ");                   /* separator */
             Strcat(more_containers ? pbuf : xbuf, "n"); /* next container */
             Strcat(pbuf, "q");                   /* quit */
@@ -3454,6 +3458,35 @@ use_container(
     return used;
 }
 
+static boolean
+transfer_container_available(void)
+{
+    struct obj *otmp, *objchns[2] = { g.invent, g.level.objects[u.ux][u.uy] };
+    struct trap *ttmp = t_at(u.ux, u.uy);
+    int i;
+
+    /* don't consider floor containers if hero can't reach them */
+    if (!can_reach_floor(ttmp && is_pit(ttmp->ttyp))) {
+        objchns[1] = (struct obj *) 0;
+    }
+
+    for (i = 0; i < SIZE(objchns); ++i) {
+        boolean invent = (objchns[i] == g.invent);
+        for (otmp = objchns[i]; otmp;
+             otmp = invent ? otmp->nobj : otmp->nexthere) {
+            /* follow the same rules as select_transfer_container() w/r/t
+             * which containers are considered acceptable */
+            if (Is_container(otmp) && otmp != g.current_container
+                && !(otmp->otyp == BAG_OF_TRICKS
+                     && objects[BAG_OF_TRICKS].oc_name_known)
+                && !(otmp->lknown && otmp->olocked)) {
+                return TRUE;
+            }
+        }
+    }
+    return FALSE;
+}
+
 /* The player has indicated they want to transfer items from container to
  * container.
  * This should set g.transfer_container to the appropriate selected object and
@@ -3470,7 +3503,9 @@ select_transfer_container(void)
     struct obj *otmp, *chosen = (struct obj *) 0;
     int i;
     struct obj *objchns[2] = { g.invent, g.level.objects[u.ux][u.uy] };
-    boolean validcont = FALSE, known_locked = FALSE,
+    struct trap *ttmp = t_at(u.ux, u.uy);
+    boolean validcont = FALSE, known_locked = FALSE, unreachable = FALSE,
+            cant_reach = !can_reach_floor(ttmp && is_pit(ttmp->ttyp)),
             do_menu   = (flags.menu_style != MENU_TRADITIONAL);
     char buf[BUFSZ];
     struct obj *slots[62]; /* enough for a-zA-Z0-9 in the ridiculous case
@@ -3485,7 +3520,8 @@ select_transfer_container(void)
 
     any.a_int = 1;
     for (i = 0; i < SIZE(objchns); ++i) {
-        boolean invent = (objchns[i] == g.invent);
+        boolean invent = (objchns[i] == g.invent),
+                validchn = FALSE;
         for (otmp = objchns[i]; otmp;
              otmp = invent ? otmp->nobj : otmp->nexthere) {
             if (floorchar > '9')
@@ -3496,11 +3532,15 @@ select_transfer_container(void)
                 || (otmp->otyp == BAG_OF_TRICKS
                     && objects[BAG_OF_TRICKS].oc_name_known)) {
                 /* not a container */
+            } else if (cant_reach && !carried(otmp)) {
+                unreachable = TRUE;
+                break; /* floor chain is evaluated second, so if we can't
+                        * reach this one, same applies to any after this */
             } else if (otmp->lknown && otmp->olocked) {
                 known_locked = TRUE;
             } else {
                 /* acceptable container option */
-                validcont = TRUE;
+                validcont = validchn = TRUE;
 
                 Sprintf(buf, "%s%s", doname(otmp),
                         invent ? "" : " [not carried]");
@@ -3529,13 +3569,14 @@ select_transfer_container(void)
                 any.a_int++;
             }
         }
-        if (do_menu)
+        if (do_menu && validchn)
             add_menu(win, &nul_glyphinfo, &cg.zeroany, 0, 0, ATR_NONE, "",
                      MENU_ITEMFLAGS_NONE); /* space */
     }
     if (!validcont) {
-        pline("There isn't another %scontainer here to put items in.",
-              known_locked ? "unlocked " : "");
+        pline("There isn't another %scontainer%s here to put items in.",
+              known_locked ? "unlocked " : "",
+              unreachable ? " that you can reach" : "");
         return FALSE;
     }
     if (do_menu) {
@@ -3585,7 +3626,7 @@ traditional_loot(boolean put_in)
         actionfunc = in_container;
         checkfunc = ck_bag;
     } else {
-        action = "take out";
+        action = g.transfer_container ? "transfer" : "take out";
         objlist = &(g.current_container->cobj);
         actionfunc = out_container;
         checkfunc = (int (*)(OBJ_P)) 0;
@@ -3610,7 +3651,9 @@ menu_loot(int retry, boolean put_in)
     boolean all_categories = TRUE, loot_everything = FALSE, autopick = FALSE;
     char buf[BUFSZ];
     boolean loot_justpicked = FALSE;
-    const char *action = put_in ? "Put in" : "Take out";
+    const char *action = put_in ? "Put in"
+                                : g.transfer_container ? "Transfer"
+                                                       : "Take out";
     struct obj *otmp, *otmp2;
     menu_item *pick_list;
     int mflags, res;
@@ -3775,7 +3818,7 @@ in_or_out_menu(const char *prompt, struct obj *obj, boolean outokay,
         add_menu(win, &nul_glyphinfo, &any, menuselector[any.a_int], 0,
                  ATR_NONE, buf, MENU_ITEMFLAGS_NONE);
     }
-    if (outokay) {
+    if (outokay && transfer_container_available()) {
         any.a_int = 7;
         Strcpy(buf, "take out and put into another container");
         add_menu(win, &nul_glyphinfo, &any, menuselector[any.a_int], 0,
