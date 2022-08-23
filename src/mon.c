@@ -554,8 +554,8 @@ make_corpse(struct monst *mtmp, unsigned int corpseflags)
         }
         goto default_1;
     case PM_LONG_WORM:
-        otmp = mksobj(WORM_TOOTH, TRUE, FALSE);
-        obj_drops_at(otmp, x, y);
+        obj = mksobj(WORM_TOOTH, TRUE, FALSE);
+        obj_drops_at(obj, x, y);
         goto default_1;
     case PM_VAMPIRE:
     case PM_VAMPIRE_LEADER:
@@ -718,11 +718,29 @@ make_corpse(struct monst *mtmp, unsigned int corpseflags)
         return obj;
     case PM_SKELETON:
         if (!rn2(50)) {
-            otmp = mksobj(SKELETON_KEY, TRUE, FALSE);
-            set_material(otmp, BONE);
+            obj = mksobj(SKELETON_KEY, TRUE, FALSE);
+            set_material(obj, BONE);
             obj_drops_at(obj, x, y);
         }
         break;
+    case PM_TIGER:
+        if (!mtmp->mrevived && !rn2(100)) {
+            int otyp;
+            for (otyp = g.bases[RING_CLASS]; otyp < g.bases[RING_CLASS+1];
+                 ++otyp) {
+                const char *s;
+                if ((s = OBJ_DESCR(objects[otyp])) != 0
+                    && !strcmp(s, "tiger eye"))
+                    break;
+            }
+            if (otyp >= g.bases[RING_CLASS + 1])
+                impossible("No tiger eye ring?");
+            else {
+                obj = mksobj(otyp, TRUE, TRUE);
+                obj_drops_at(obj, x, y);
+            }
+        }
+        goto default_1;
     default:
  default_1:
         if (g.mvitals[mndx].mvflags & G_NOCORPSE) {

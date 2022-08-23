@@ -91,6 +91,15 @@ changes:
   launcher.
 - Exploding yellow and black lights affect all monsters immediately adjacent to
   them, not just the single target they are nominally attacking.
+- The hunger intrinsic halves the nutritional value of anything you eat. It does
+  not affect beverages, and other intrinsics that have fast hungering as a side
+  effect do not cause this.
+- Engraving with a wand of probing or wand of secret door detection produces a
+  unique message and identifies the wand (assuming it has a charge to expend, as
+  is standard).
+- 1% of tigers drop a tiger eye ring when killed.
+- Dwarves get a +1 alignment bonus when they chop down a tree.
+- Jumping boots automatically identify themselves when worn.
 
 ### Interface changes
 
@@ -107,6 +116,11 @@ changes:
   if cancelled. (Similar to coyotes, not like nymphs or foocubi.)
 - Steam vortices' engulf attack produces "boiling" messages rather than
   "burning".
+- When you begin the game in polyinit mode and using the tty windowport, the "Is
+  this ok?" prompt before launching the game is always shown, and displays the
+  monster you will be polyinitted into.
 
 ### Architectural changes
 
+Fuzzer logging is now a compile-time switch, and is off by default, rather than
+being a silent user of CPU in all regular games.
