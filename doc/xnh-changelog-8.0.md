@@ -80,6 +80,17 @@ changes:
   drain additional energy the more sources of magic resistance and half damage
   you have.
 - Corpses of monsters that cause petrification only grow green mold on them.
+- Monsters that spawn with weapons get a free turn to wield them.
+- Steam vortexes leave a trail of steam clouds behind them and burst into a
+  medium sized steam cloud when they die. Canceling them prevents both of these.
+- Add the #shout command, which lets you shout a string of your choice to get
+  recorded in the game chronicle and livelog (which public servers may
+  broadcast).
+- Rangers at or above XL 10 automatically identify the enchantment of ammo that
+  they pick up, provided they have at least Basic skill with its associated
+  launcher.
+- Exploding yellow and black lights affect all monsters immediately adjacent to
+  them, not just the single target they are nominally attacking.
 
 ### Interface changes
 
@@ -94,6 +105,8 @@ changes:
   distinguish them from lightning.
 - Quantum mechanics are given physicist names when farlooked, or "Dr. Science"
   if cancelled. (Similar to coyotes, not like nymphs or foocubi.)
+- Steam vortices' engulf attack produces "boiling" messages rather than
+  "burning".
 
 ### Architectural changes
 
