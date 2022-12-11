@@ -118,7 +118,7 @@ ENTRYMAX=2000
 # 0x004000 - Include as 'major' event in dumplog; can be hidden from livelog
 # 0x008000 - Livelog debug msgs (currently only 'enter new level')
 # 0x010000 - Shouts by the player
-LIVELOG=0x00FFF
+LIVELOG=0x10FFF
 
 # Show debugging information originating from these source files.
 # Use '*' for all, or list source files separated by spaces.
