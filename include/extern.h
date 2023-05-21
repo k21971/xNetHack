@@ -1513,7 +1513,6 @@ extern void place_lregion(coordxy, coordxy, coordxy, coordxy, coordxy,
                           coordxy, coordxy, coordxy, xint16, d_level *);
 extern void fixup_special(void);
 extern boolean maze_inbounds(coordxy, coordxy);
-extern void maze_add_rooms(int);
 extern void fumaroles(void);
 extern void movebubbles(void);
 extern void water_friction(void);
@@ -2779,6 +2778,7 @@ extern boolean mapfrag_canmatch(struct mapfragment *);
 extern const char * mapfrag_error(struct mapfragment *);
 extern boolean mapfrag_match(struct mapfragment *, int, int);
 extern void lvlfill_maze_grid(int, int, int, int, schar);
+extern void lvlfill_solid(schar, schar);
 extern void flip_level(int, boolean);
 extern void flip_level_rnd(int, boolean);
 extern boolean check_room(coordxy *, coordxy *, coordxy *, coordxy *, boolean);

@@ -21,7 +21,6 @@ extern void mkmap(lev_init *);
 static boolean match_maptyps(xint16, xint16);
 static void solidify_map(void);
 static void map_cleanup(void);
-static void lvlfill_solid(schar, schar);
 static void lvlfill_swamp(schar, schar, schar);
 static void flip_drawbridge_horizontal(struct rm *);
 static void flip_drawbridge_vertical(struct rm *);
@@ -319,12 +318,6 @@ void
 lvlfill_maze_grid(int x1, int y1, int x2, int y2, schar filling)
 {
     int x, y;
-    /* FIXME: Can't work with special levels right now because it places the
-     * fill (plus rooms) of the level and then the map, which means that rooms
-     * can be cut off. There seems to be no way to tell where the special level
-     * is going to be placed ahead of time. */
-    /* maze_add_rooms(20); */
-
     for (x = x1; x <= x2; x++) {
         for (y = y1; y <= y2; y++) {
             /* avoid overwriting maze rooms */
@@ -373,7 +366,7 @@ map_cleanup(void)
         }
 }
 
-static void
+void
 lvlfill_solid(schar filling, schar lit)
 {
     int x, y;
@@ -1875,11 +1868,7 @@ create_trap(spltrap* t, struct mkroom* croom)
     coord tm;
     int mktrap_flags = MKTRAP_MAZEFLAG;
 
-    if (t->type == VIBRATING_SQUARE) {
-        pick_vibrasquare_location();
-        maketrap(gi.inv_pos.x, gi.inv_pos.y, VIBRATING_SQUARE);
-        return;
-    } else if (croom) {
+    if (croom) {
         get_free_room_loc(&x, &y, croom, t->coord);
     } else {
         int trycnt = 0;
