@@ -120,7 +120,6 @@ static const char *get_mkroom_name(int);
 static int get_table_roomtype_opt(lua_State *, const char *, int);
 static int get_table_traptype_opt(lua_State *, const char *, int);
 static int get_traptype_byname(const char *);
-static void selection_recalc_bounds(struct selectionvar *);
 static lua_Integer get_table_intarray_entry(lua_State *, int, int);
 static struct sp_coder *sp_level_coder_init(void);
 
@@ -150,7 +149,6 @@ int lspo_portal(lua_State *);
 int lspo_random_corridors(lua_State *);
 int lspo_region(lua_State *);
 int lspo_replace_terrain(lua_State *);
-int lspo_reset_coordinate_system(lua_State *);
 int lspo_reset_level(lua_State *);
 int lspo_finalize_level(lua_State *);
 int lspo_room(lua_State *);
@@ -193,7 +191,6 @@ static struct monst *invent_carrying_monster = (struct monst *) 0;
 
 #define TYP_CANNOT_MATCH(typ) ((typ) == MAX_TYPE || (typ) == INVALID_TYPE)
 
-/* guts of des.reset_coordinate_system(); called from a couple other places */
 void
 reset_xystart_size(void)
 {
@@ -4250,7 +4247,7 @@ l_create_stairway(lua_State *L, boolean using_ladder)
     get_location_coord(&x, &y, DRY, gc.coder->croom, scoord);
     set_ok_location_func(NULL);
     if ((badtrap = t_at(x, y)) != 0)
-        deltrap(badtrap);
+        deltrap_with_ammo(badtrap, DELTRAP_DESTROY_AMMO);
     SpLev_Map[x][y] = 1;
 
     if (using_ladder) {
@@ -4719,7 +4716,7 @@ selection_getbounds(struct selectionvar *sel, NhRect *b)
 }
 
 /* recalc the boundary of selection, if necessary */
-static void
+void
 selection_recalc_bounds(struct selectionvar *sel)
 {
     coordxy x, y;
@@ -5402,6 +5399,12 @@ sel_set_ter(coordxy x, coordxy y, genericptr_t arg)
 static void
 sel_set_feature(coordxy x, coordxy y, genericptr_t arg)
 {
+    if (!isok(x, y)) {
+#ifdef EXTRA_SANITY_CHECKS
+        impossible("sel_set_feature(%i,%i,%i) !isok", x, y, (*(int *) arg));
+#endif /*EXTRA_SANITY_CHECKS*/
+        return;
+    }
     if (IS_FURNITURE(levl[x][y].typ))
         return;
     levl[x][y].typ = (*(int *) arg);
@@ -5554,8 +5557,10 @@ lspo_door(lua_State *L)
         /*selection_iterate(sel, sel_set_door, (genericptr_t) &typ);*/
         get_location_coord(&x, &y, ANY_LOC, gc.coder->croom,
                            SP_COORD_PACK(x, y));
-        if (!isok(x, y))
+        if (!isok(x, y)) {
             nhl_error(L, "door coord not ok");
+            return 0;
+        }
         sel_set_door(x, y, (genericptr_t) &msk);
     }
 
@@ -5681,10 +5686,15 @@ lspo_feature(lua_State *L)
     int typ;
     int argc = lua_gettop(L);
     boolean can_have_flags = FALSE;
+    long fcoord;
+    int humidity;
 
     create_des_coder();
 
-    if (argc == 2 && lua_type(L, 1) == LUA_TSTRING
+    if (argc == 1 && lua_type(L, 1) == LUA_TSTRING) {
+        typ = features2i[luaL_checkoption(L, 1, NULL, features)];
+        x = y = -1;
+    } else if (argc == 2 && lua_type(L, 1) == LUA_TSTRING
         && lua_type(L, 2) == LUA_TTABLE) {
         lua_Integer fx, fy;
         typ = features2i[luaL_checkoption(L, 1, NULL, features)];
@@ -5705,7 +5715,15 @@ lspo_feature(lua_State *L)
         can_have_flags = TRUE;
     }
 
-    get_location_coord(&x, &y, ANY_LOC, gc.coder->croom, SP_COORD_PACK(x, y));
+    if (x == -1 && y == -1) {
+        fcoord = SP_COORD_PACK_RANDOM(0);
+        humidity = DRY; /* pick a regular space, no rock or other furniture */
+    }
+    else {
+        fcoord = SP_COORD_PACK(x, y);
+        humidity = ANY_LOC; /* assume the author knows what they're doing */
+    }
+    get_location_coord(&x, &y, humidity, gc.coder->croom, fcoord);
 
     if (typ == STONE)
         impossible("feature has unknown type param.");
@@ -5815,6 +5833,10 @@ lspo_terrain(lua_State *L)
     } else {
         get_location_coord(&x, &y, ANY_LOC, gc.coder->croom,
                            SP_COORD_PACK(x, y));
+        if (!isok(x, y)) {
+            nhl_error(L, "terrain coord not ok");
+            return 0;
+        }
         sel_set_ter(x, y, (genericptr_t) &tmpterrain);
     }
 
@@ -6481,6 +6503,10 @@ lspo_drawbridge(lua_State *L)
     y = my;
 
     get_location_coord(&x, &y, DRY | WET | HOT, gc.coder->croom, dcoord);
+    if (!isok(mx, my)) {
+        nhl_error(L, "drawbridge coord not ok");
+        return 0;
+    }
     if (db_open == -1)
         db_open = !rn2(2);
     if (!create_drawbridge(x, y, dir, db_open ? TRUE : FALSE))
@@ -6530,8 +6556,10 @@ lspo_mazewalk(lua_State *L)
 
     get_location_coord(&x, &y, ANY_LOC, gc.coder->croom, mcoord);
 
-    if (!isok(x, y))
+    if (!isok(x, y)) {
+        nhl_error(L, "mazewalk coord not ok");
         return 0;
+    }
 
     if (ftyp < 1) {
         ftyp = ROOM;
@@ -6716,19 +6744,6 @@ lspo_wallify(lua_State *L)
                 dx2 < 0 ? (gx.xstart + gx.xsize + 1) : dx2,
                 dy2 < 0 ? (gy.ystart + gy.ysize + 1) : dy2);
 
-    return 0;
-}
-
-/* Reset the coordinate system of the level.
- * Useful when defining a des.map that only covers part of the map, and you
- * don't want its relative coordinate system to apply to everything else that
- * follows in the lua file.
- * des.reset_coordinate_system();
- */
-int
-lspo_reset_coordinate_system(lua_State *L UNUSED)
-{
-    reset_xystart_size();
     return 0;
 }
 
@@ -7029,7 +7044,12 @@ TODO: gc.coder->croom needs to be updated
  skipmap:
     mapfrag_free(&mf);
 
-    if (has_contents && !(gi.in_mk_themerooms && gt.themeroom_failed)) {
+    if (gi.in_mk_themerooms && gt.themeroom_failed) {
+        /* this mutated xstart and ystart in the process of trying to make a
+         * themed room, so undo them */
+        reset_xystart_size();
+    }
+    else if (has_contents) {
         l_push_wid_hei_table(L, gx.xsize, gy.ysize);
         if (nhl_pcall(L, 1, 0)){
             impossible("Lua error: %s", lua_tostring(L, -1));
@@ -7155,7 +7175,6 @@ static const struct luaL_Reg nhl_functions[] = {
     { "non_passwall", lspo_non_passwall },
     { "teleport_region", lspo_teleport_region },
     { "reset_level", lspo_reset_level },
-    { "reset_coordinate_system", lspo_reset_coordinate_system },
     { "finalize_level", lspo_finalize_level },
     /* TODO: { "branch", lspo_branch }, */
     /* TODO: { "portal", lspo_portal }, */

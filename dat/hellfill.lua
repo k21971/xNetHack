@@ -375,7 +375,9 @@ if percent(40) and prefab3 ~= prefab2 and prefab3 ~= prefab1 then
    hell_prefabs[prefab3]()
 end
 
-des.reset_coordinate_system()
+des.stair("up")
+des.stair("down")
+-- branch stair, if any, is added by default
 
 -- default monsters
 for i = 1, d(3) do
@@ -427,7 +429,4 @@ for i = 1, 7 + d(5) do
    end
 end
 
-des.stair("up")
-des.stair("down")
--- branch stair, if any, is added by default
 des.wallify()
