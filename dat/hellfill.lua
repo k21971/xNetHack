@@ -323,7 +323,7 @@ xx--.---xx]], contents = function()
 .PPP.
 .....]];
       for dx = 1, 5 do
-         des.map({ x = dx*14 - 4, y = math.random(3, 15),
+         des.map({ halign = rnd_halign(), valign = rnd_valign(),
                    map = mapstr, contents = function() end })
       end
    end,
