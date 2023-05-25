@@ -322,10 +322,8 @@ xx--.---xx]], contents = function()
 .PWP.
 .PPP.
 .....]];
-      for dx = 1, 5 do
-         des.map({ halign = rnd_halign(), valign = rnd_valign(),
-                   map = mapstr, contents = function() end })
-      end
+      des.map({ halign = rnd_halign(), valign = rnd_valign(),
+                map = mapstr, contents = function() end })
    end,
 
    -- TODO: add some more
