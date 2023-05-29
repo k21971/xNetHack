@@ -3,7 +3,7 @@
 This is a major version of xNetHack. It is based directly on xNetHack 7.0, and
 is a fork off the vanilla NetHack 3.7.0 development version release.
 
-The most recent vanilla commit incorporated into xNetHack is 1800424. Note that
+The most recent vanilla commit incorporated into xNetHack is 2abe156. Note that
 because 3.7.0 is still in development status, xNetHack contains major changes
 including new monsters, new objects, themed rooms, and other things *not*
 documented in this file or other xNetHack changelogs. See doc/fixes37.0 for the
@@ -420,3 +420,6 @@ changes:
   are "an X% chance of this" or "a X in Y percent chance of this", and avoiding
   obtuse rn2 statements.
 - ceiling_exists() is no longer a function. It is back to has_ceiling(&u.uz).
+- Award an extended achievement for killing every archfiend.
+- Move the logic of choosing a special fruit name for a holiday into a new
+  function maybe_festive_fruit().

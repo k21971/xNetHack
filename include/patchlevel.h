@@ -17,7 +17,7 @@
  * Incrementing EDITLEVEL can be used to force invalidation of old bones
  * and save files.
  */
-#define EDITLEVEL 0
+#define EDITLEVEL 1
 
 /*
  * Development status possibilities.
@@ -30,7 +30,7 @@
 /*
  * Development status of this NetHack version.
  */
-#define NH_DEVEL_STATUS NH_STATUS_BETA
+#define NH_DEVEL_STATUS NH_STATUS_RELEASED
 
 #ifndef DEBUG  /* allow tool chains to define without causing warnings */
 #define DEBUG
