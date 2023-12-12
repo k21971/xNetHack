@@ -5,8 +5,9 @@
 
 #include "hack.h"
 
-/* "an uncursed greased partly eaten guardian naga hatchling [corpse]" */
-#define PREFIX 80 /* (56) */
+/* "an uncursed greased silver-scaled thoroughly rusty thoroughly corroded
+   rustproof +0 [chain mail]" (83 characters) */
+#define PREFIX 90
 #define SCHAR_LIM 127
 #define NUMOBUF 12
 
@@ -524,17 +525,6 @@ xname(struct obj* obj)
 {
     return xname_flags(obj, CXN_NORMAL);
 }
-
-/* Force rendering of materials on certain items where the object name
- * wouldn't make as much sense without a material (e.g. "leather jacket" vs
- * "jacket"), or those where the default material is non-obvious.
- * NB: GLOVES have a randomized description when not identified; "leather
- * padded gloves" would give the game away if we did not check their
- * identification status */
-#define force_material_name(typ) \
-    ((typ) == LIGHT_ARMOR || (typ) == STUDDED_ARMOR || (typ) == JACKET \
-     || (typ) == PLAIN_CLOAK || (typ) == FIGURINE || (typ) == STATUE \
-     || ((typ) == GLOVES && objects[GLOVES].oc_name_known))
 
 static char *
 xname_flags(
@@ -1306,9 +1296,10 @@ doname_base(
                         arti_light_description(obj));
         }
         if (Is_dragon_scaled_armor(obj)) {
-            char scalebuf[30];
-            Sprintf(scalebuf, "%s-scaled ", dragon_scales_color(obj));
+            char scalebuf[30], *colorstr = dragon_scales_color(obj);
+            Sprintf(scalebuf, "%s-scaled ", colorstr);
             Strcat(prefix, scalebuf);
+            releaseobuf(colorstr); /* don't consume an extra obuf */
         }
         /*FALLTHRU*/
     case WEAPON_CLASS:
@@ -3193,6 +3184,7 @@ static const struct alt_spellings {
     { "pie", CREAM_PIE },
     { "huge meatball", ENORMOUS_MEATBALL }, /* likely conflated name */
     { "huge chunk of meat", ENORMOUS_MEATBALL }, /* original name */
+    { "tripe", TRIPE_RATION },
     { "marker", MAGIC_MARKER },
     { "hook", GRAPPLING_HOOK },
     { "grappling iron", GRAPPLING_HOOK },
@@ -5554,7 +5546,7 @@ shirt_simple_name(struct obj *shirt UNUSED)
 char *
 dragon_scales_color(struct obj *obj)
 {
-    char* buf = nextobuf();
+    char *buf = nextobuf();
     if (!obj) {
         impossible("dragon_scales_color: null obj");
         return NULL;
