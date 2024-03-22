@@ -28,6 +28,13 @@ changes:
   depth.
 - Cockatrice nests may contain chickatrices and cockatrice eggs.
 - Eating troll meat provides 2d6 turns of intrinsic regneneration.
+- Drinking from a magic fountain when either HP or Pw is below 60% may give a
+  healing spring effect that increases both maximums by 1 and fully restores
+  both, instead of the usual gain ability effect. The fountain still becomes
+  nonmagical afterward.
+- Monsters will consider if their regular melee attacks might deal a lot more
+  damage to the hero than their offensive items would, and may subsequently
+  decide to attack in melee rather than using that offensive item.
 
 ### Interface changes
 
@@ -35,6 +42,14 @@ changes:
   equivalent from vanilla).
 - Pets are referred to with their correct gender pronoun if they have one,
   rather than "it".
+- When you #chat and are next to only one observable monster, you will
+  automatically attempt to chat to that monster without being prompted for a
+  direction to chat in.
+- When you are a few turns from temporary invisibility expiring, you receive a
+  message warning you that you're becoming visible again.
+- When farlooking a closed and unlocked door you are next to, it will show up as
+  "unlocked door" instead of the generic "closed door".
+- Produce a message when a nymph teleports away after a successful theft.
 
 ### Architectural changes
 
