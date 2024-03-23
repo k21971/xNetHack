@@ -35,6 +35,11 @@ changes:
 - Monsters will consider if their regular melee attacks might deal a lot more
   damage to the hero than their offensive items would, and may subsequently
   decide to attack in melee rather than using that offensive item.
+- Rolling boulders, eating carrots, and occasionally trying to read a dusty
+  spellbook (via the dust making you sneeze) causes enough noise to wake nearby
+  monsters.
+- Monsters stepping on a squeaky board near you can wake you up.
+- Leprechauns have a one-sided grudge against gold golems and gold dragons.
 
 ### Interface changes
 
@@ -50,6 +55,9 @@ changes:
 - When farlooking a closed and unlocked door you are next to, it will show up as
   "unlocked door" instead of the generic "closed door".
 - Produce a message when a nymph teleports away after a successful theft.
+- When polymorphed into a monster with an explosion attack, you can #monster to
+  intentionally explode. (This was already possible by attacking a monster or
+  force-fighting thin air.)
 
 ### Architectural changes
 

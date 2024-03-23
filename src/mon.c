@@ -2396,17 +2396,14 @@ mm_aggression(
     struct permonst *ma, *md;
     ma = magr->data;
     md = mdef->data;
-    /* Don't allow pets to fight each other. */
+
+    /* don't allow pets to fight each other */
     if (magr->mtame && mdef->mtame)
         return 0;
 
     /* Grudge patch. */
     /* Put one-way aggressions below here, and two-way aggressions in
      * mm_2way_aggression. */
-
-    /* don't allow pets to fight each other */
-    if (magr->mtame && mdef->mtame)
-        return 0;
 
     /* supposedly purple worms are attracted to shrieking because they
        like to eat shriekers, so attack the latter when feasible */
@@ -2437,6 +2434,12 @@ mm_aggression(
 
     /* guards vs leprechauns */
     if (ma == &mons[PM_GUARD] && md == &mons[PM_LEPRECHAUN])
+        return ALLOW_M|ALLOW_TM;
+
+    /* leprechans vs gold golems and (baby) gold dragons */
+    if (ma == &mons[PM_LEPRECHAUN]
+        && (md == &mons[PM_GOLD_GOLEM] || md == &mons[PM_GOLD_DRAGON]
+            || md == &mons[PM_BABY_GOLD_DRAGON]))
         return ALLOW_M|ALLOW_TM;
 
     /* now test all two-way aggressions both ways */
