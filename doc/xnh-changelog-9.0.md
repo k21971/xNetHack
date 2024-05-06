@@ -26,6 +26,8 @@ changes:
 - Every lock in the game may be unopenable by using a credit card. Boxes have a
   40% chance, and doors have a chance that starts at 10% and increases with
   depth.
+- Also, if the card is cursed or you are fumbling, the card may slip through the
+  lock, ending up inside a box or on the other side of a door.
 - Cockatrice nests may contain chickatrices and cockatrice eggs.
 - Eating troll meat provides 2d6 turns of intrinsic regneneration.
 - Drinking from a magic fountain when either HP or Pw is below 60% may give a
@@ -40,6 +42,26 @@ changes:
   monsters.
 - Monsters stepping on a squeaky board near you can wake you up.
 - Leprechauns have a one-sided grudge against gold golems and gold dragons.
+- Rock moles can eat gems and rocks (and other objects made of stone, like
+  marble wands). Dilithium crystals grant them extra speed. The player can eat
+  boulders and (empty) statues when polymorphed into one, but other rock moles
+  won't.
+- Gain energy potions are guaranteed to restore more energy. A blessed one
+  restores at least 40% of your energy maximum and an uncursed one restores at
+  least 25%.
+- The potion of gain energy can be alchemized by combining the potions of full
+  healing and gain ability.
+- Sitting down can partly wipe engravings on your space.
+- The chance of finding a secret door or passage via searching is no longer
+  dependent on Luck.
+- Zombies cannot open closed doors.
+- Zombies additionally are immune to being scared by any source, including the
+  scroll of scare monster.
+- Orcs, barbarians, and cavemen have a Wisdom-dependent chance of avoiding the
+  urge to take a bath in a fountain.
+- Scrolls of earth work again in all levels besides the non-Earth Planes.
+- Yeenoghu no longer carries a wand of wishing; instead there is a buried chest
+  on his level that may contain it.
 
 ### Interface changes
 
@@ -58,6 +80,17 @@ changes:
 - When polymorphed into a monster with an explosion attack, you can #monster to
   intentionally explode. (This was already possible by attacking a monster or
   force-fighting thin air.)
+- Escaping out of a polymorph prompt no longer causes a random polymorph; it
+  instead gives instructions on how to explicitly request that and prompts
+  again. (However, escaping or failing to enter a valid form 5 times still
+  causes a random polymorph.)
+- The legacy text at the start of the game uses different role-based opening
+  lines that replace the standard "It is written in the Book of [deity]:"
+- YAFMs:
+  - Chatting to a troll (even though you can't see it's a troll) while
+    hallucinating.
+  - Being life-saved while hallucinating.
+  - Monster drinking a potion where you can't see while hallucinating.
 
 ### Architectural changes
 

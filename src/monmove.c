@@ -231,13 +231,14 @@ onscary(coordxy x, coordxy y, struct monst *mtmp)
      * humans aren't monsters
      * uniques have ascended their base monster instincts
      * Rodney, lawful minions, Angels, the Riders, shopkeepers
-     * inside their own shop, priests inside their own temple, uniques */
+     * inside their own shop, priests inside their own temple, uniques,
+     * zombies */
     if (mtmp->iswiz || is_lminion(mtmp) || mtmp->data == &mons[PM_ANGEL]
         || is_rider(mtmp->data)
         || mtmp->data->mlet == S_HUMAN || unique_corpstat(mtmp->data)
         || (mtmp->isshk && inhishop(mtmp))
         || (mtmp->ispriest && inhistemple(mtmp))
-        || (mtmp->data->geno & G_UNIQ))
+        || (mtmp->data->geno & G_UNIQ) || is_zombie(mtmp->data))
         return FALSE;
 
     /* <0,0> is used by musical scaring to check for the above;
@@ -1850,10 +1851,19 @@ m_move(register struct monst *mtmp, int after)
                 newsym(mtmp->mx, mtmp->my);
         }
         if (OBJ_AT(mtmp->mx, mtmp->my) && mtmp->mcanmove) {
+            etmp = 0; /* default "nothing happened" from meat*() funcs */
 
-            /* Maybe a rock mole just ate some metal object */
-            if (metallivorous(ptr)) {
-                if (meatmetal(mtmp) == 2)
+            /* Maybe a rock mole just ate some rock object */
+            if (lithivorous(ptr)) {
+                etmp = meatrocks(mtmp);
+                if (etmp == 2) /* not currently possible */
+                    return MMOVE_DIED;
+            }
+
+            /* Or maybe the rock mole just ate some metal object */
+            if (etmp == 0 && metallivorous(ptr)) {
+                etmp = meatmetal(mtmp);
+                if (etmp == 2)
                     return MMOVE_DIED; /* it died */
             }
 
