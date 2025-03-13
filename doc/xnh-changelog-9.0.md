@@ -62,6 +62,34 @@ changes:
 - Scrolls of earth work again in all levels besides the non-Earth Planes.
 - Yeenoghu no longer carries a wand of wishing; instead there is a buried chest
   on his level that may contain it.
+- You will only abuse Wisdom when trying to clumsily throw weapons without the
+  proper launcher when you actually perceive you're throwing them at a monster,
+  but the Wisdom penalty now happens 100% of the time instead of 20%.
+- It is no longer possible to levelport downwards or teleport within the same
+  level in the Quest before the nemesis is killed.
+- Being adjacent to a hezrou may nauseate you, with the odds increasing if there
+  are multiple hezrous.
+- Hill giants are now the weakest giant, taking over the statblock of the stone
+  giant (equivalent to the plain giant) with its 2d8 weapon attack.
+- Stone giants are slightly stronger, taking over the statblock of the hill
+  giant with its 2d10 weapon attack. They are now able to rip boulders out of
+  the floor when they don't already have one, which creates a pit on that
+  square.
+- Fire giants have a 2d4 fire touch attack.
+- Frost giants have a 3d4 cold touch attack and their own encyclopedia entry.
+- Storm giants have a 4d4 ranged lightning bolt attack.
+- Hrymr's sword on the Valkyrie quest is now named Ice. (Its stats are otherwise
+  unchanged, and it is not an artifact.)
+- Levels that have been changed following some event, such as the Valkyrie
+  locate level, are ineligible to leave bones.
+- Luck plays a reduced factor in to-hit calculations, now adding +1 to hit for
+  every 3 points of luck, rounded to the next greatest increment: +1 for 1 to 3
+  luck, +2 for 4 to 6 luck, -1 for -1 to -3 luck, etc.
+- Critical hits on martial arts attacks made at Expert or higher skill may
+  disarm an enemy of its weapon and knock it to an adjacent space, with higher
+  chance for higher levels of skill.
+- Being Skilled or better in martial arts or bare-handed combat now confers an
+  bonus to AC when not wearing any body armor or a shield.
 
 ### Interface changes
 
@@ -91,6 +119,8 @@ changes:
     hallucinating.
   - Being life-saved while hallucinating.
   - Monster drinking a potion where you can't see while hallucinating.
+- There is now a pager message for the bridge in the Valkyrie locate level being
+  restored.
 
 ### Architectural changes
 
