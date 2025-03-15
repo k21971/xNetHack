@@ -10,6 +10,7 @@
    (liquid potion inside glass bottle, metal arrowhead on wooden shaft)
    and object definitions only specify one type on a best-fit basis */
 enum obj_material_types {
+    NO_MATERIAL =  0,
     LIQUID      =  1, /* currently only for venom */
     WAX         =  2,
     VEGGY       =  3, /* foodstuffs */
@@ -67,7 +68,7 @@ struct objclass {
     Bitfield(oc_tough, 1); /* hard gems/rings */
 
     Bitfield(oc_spare1, 6);         /* padding to align oc_dir + oc_material;
-                                     * can be canabalized for other use;
+                                     * can be cannibalized for other use;
                                      * aka 6 free bits */
 
     Bitfield(oc_dir, 3);
@@ -190,28 +191,24 @@ extern NEARDATA struct objdescr obj_descr[NUM_OBJECTS + 1];
 #define is_metallic(otmp)                    \
     ((otmp)->material >= IRON && (otmp)->material <= MITHRIL)
 
-/* Hard materials. Currently only used for things falling on helms. */
-#define is_hard(otmp) \
-    (is_metallic(otmp) || ((otmp)->material == WOOD) \
-     || ((otmp)->material == BONE) || ((otmp)->material == MINERAL) \
-     || ((otmp)->material == GLASS))
-
-/* Brittle materials; prone to shattering.
- * Currently just glass, but cases could be made for bone or wood too. */
-#define is_brittle(otmp) ((otmp)->material == GLASS)
-
 /* primary damage: fire/rust/--- */
 /* is_flammable(otmp), is_rottable(otmp) in mkobj.c */
 #define is_rustprone(otmp) ((otmp)->material == IRON)
-
+/* note: is_crackable doesn't need to include weptools because none of them can
+ * generate as glass */
+#define is_crackable(otmp) \
+    ((otmp)->material == GLASS               \
+     && ((otmp)->oclass == ARMOR_CLASS       \
+         || (otmp)->oclass == WEAPON_CLASS)) /* erosion_matters() */
 /* secondary damage: rot/acid/acid */
 #define is_corrodeable(otmp)                   \
     ((otmp)->material == COPPER || (otmp)->material == SILVER \
      || (otmp)->material == IRON)
-
-#define is_damageable(otmp)                                        \
-    (is_rustprone(otmp) || is_flammable(otmp) || is_rottable(otmp) \
-     || is_corrodeable(otmp))
+/* subject to any damage */
+#define is_damageable(otmp) \
+    (is_rustprone(otmp) || is_flammable(otmp)           \
+     || is_rottable(otmp) || is_corrodeable(otmp)       \
+     || is_crackable(otmp))
 
 /* Force rendering of materials on certain items where the object name
  * wouldn't make as much sense without a material (e.g. "leather jacket" vs

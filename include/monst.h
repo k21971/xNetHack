@@ -1,4 +1,4 @@
-/* NetHack 3.7	monst.h	$NHDT-Date: 1678560511 2023/03/11 18:48:31 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.54 $ */
+/* NetHack 3.7	monst.h	$NHDT-Date: 1738640524 2025/02/03 19:42:04 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.67 $ */
 /* Copyright (c) Stichting Mathematisch Centrum, Amsterdam, 1985. */
 /*-Copyright (c) Robert Patrick Rankin, 2016. */
 /* NetHack may be freely redistributed.  See license for details. */
@@ -64,7 +64,6 @@ enum m_ap_types {
 #define MON_ENDGAME_FREE 0x20
 #define MON_ENDGAME_MIGR 0x40
 #define MON_OBLITERATE   0x80
-#define MSTATE_MASK      0xFF
 
 #define M_AP_TYPMASK  0x7
 #define M_AP_F_DKNOWN 0x8
@@ -88,7 +87,10 @@ enum m_seen_resistance {
 
 #define m_seenres(mon, mask) ((mon)->seen_resistance & (mask))
 #define m_setseenres(mon, mask) ((mon)->seen_resistance |= (mask))
+#define m_clearseenres(mon, mask) ((mon)->seen_resistance &= ~(mask))
 #define monstseesu_ad(adtyp) monstseesu(cvt_adtyp_to_mseenres(adtyp))
+#define monstunseesu_ad(adtyp) monstunseesu(cvt_adtyp_to_mseenres(adtyp))
+#define monstunseesu_prop(prop) monstunseesu(cvt_prop_to_mseenres(prop))
 
 struct monst {
     struct monst *nmon;
@@ -156,9 +158,11 @@ struct monst {
     Bitfield(iswiz, 1);     /* is the Wizard of Yendor */
     Bitfield(wormno, 5);    /* at most 31 worms on any level */
     Bitfield(mtemplit, 1);  /* temporarily seen; only valid during bhit() */
-    Bitfield(mwither_from_u, 1); /* is withering due to player */
     Bitfield(meverseen, 1); /* mon has been seen at some point */
-    /* 7 free bits */
+
+    Bitfield(mspotted, 1);  /* mon is currently seen by hero */
+    Bitfield(mwither_from_u, 1); /* is withering due to player */
+    /* 6 free bits */
 
     uchar mwither;          /* withering; amount of turns left till recovery */
 #define MAX_NUM_WORMS 32    /* should be 2^(wormno bitfield size) */
@@ -179,12 +183,10 @@ struct monst {
 #define STRAT_PLAYER    0x01000000L
 #define STRAT_NONE      0x00000000L
 #define STRAT_STRATMASK 0x0f000000L
-#define STRAT_XMASK     0x00ff0000L
-#define STRAT_YMASK     0x0000ff00L
+    /* mstrategy unused 0x00ffff00L */
 #define STRAT_GOAL      0x000000ffL
-#define STRAT_GOALX(s) ((coordxy) ((s & STRAT_XMASK) >> 16))
-#define STRAT_GOALY(s) ((coordxy) ((s & STRAT_YMASK) >> 8))
 
+    coord mgoal;           /* monster strategy, target location */
     long mtrapseen;        /* bitmap of traps we've been trapped in */
     long mlstmv;           /* for catching up with lost time */
     long mstate;           /* debugging info on monsters stored here */
@@ -208,25 +210,29 @@ struct monst {
 #define MON_WEP(mon) ((mon)->mw)
 #define MON_NOWEP(mon) ((mon)->mw = (struct obj *) 0)
 
+/* dead monsters stay on the fmon list until dmonsfree() at end of turn */
 #define DEADMONSTER(mon) ((mon)->mhp < 1)
-#define is_starting_pet(mon) ((mon)->m_id == gc.context.startingpet_mid)
-#define is_vampshifter(mon)                                      \
+
+#define is_starting_pet(mon) ((mon)->m_id == svc.context.startingpet_mid)
+#define is_vampshifter(mon) \
     ((mon)->cham == PM_VAMPIRE || (mon)->cham == PM_VAMPIRE_LEADER \
      || (mon)->cham == PM_VLAD_THE_IMPALER)
 #define vampshifted(mon) (is_vampshifter((mon)) && !is_vampire((mon)->data))
+/* Vlad might be vampshifted so just checking monst->data is insufficient */
+#define is_Vlad(m) ((m)->data == &mons[PM_VLAD_THE_IMPALER]  \
+                    || (m)->cham == PM_VLAD_THE_IMPALER)
 
-/* monsters which cannot be displaced: priests, shopkeepers, vault guards,
-   Oracle, quest leader */
-#define mundisplaceable(mon) ((mon)->ispriest                    \
-                              || (mon)->isshk                    \
-                              || (mon)->isgd                     \
-                              || (mon)->data == &mons[PM_ORACLE] \
-                              || (mon)->m_id == gq.quest_status.leader_m_id)
+/* monsters which cannot be displaced: temple priests, shopkeepers,
+   vault guards, the Oracle, quest leader */
+#define mundisplaceable(mon) \
+    ((mon)->ispriest || (mon)->isshk                    \
+     || (mon)->isgd || (mon)->data == &mons[PM_ORACLE]  \
+     || (mon)->m_id == svq.quest_status.leader_m_id)
 
 /* mimic appearances that block vision/light */
-#define is_lightblocker_mappear(mon)                       \
+#define is_lightblocker_mappear(mon) \
     (is_obj_mappear(mon, BOULDER)                          \
-     || (M_AP_TYPE(mon) == M_AP_FURNITURE                    \
+     || (M_AP_TYPE(mon) == M_AP_FURNITURE                  \
          && ((mon)->mappearance == S_hcdoor                \
              || (mon)->mappearance == S_vcdoor             \
              || (mon)->mappearance < S_ndoor /* = walls */ \
@@ -253,7 +259,9 @@ struct monst {
 #define engulfing_u(mon) (u.uswallow && (u.ustuck == (mon)))
 #define helpless(mon) ((mon)->msleeping || !(mon)->mcanmove)
 
-#define mon_offmap(mon) (((mon)->mstate & (MON_DETACH|MON_MIGRATING|MON_LIMBO|MON_OFFMAP)) != 0)
+#define mon_perma_blind(mon) (!mon->mcansee && !mon->mblinded)
+
+#define mon_offmap(mon) ((mon)->mstate != MON_FLOOR)
 
 /* Get the maximum difficulty monsters that can currently be generated,
    given the current level difficulty and the hero's level. */
@@ -273,5 +281,22 @@ struct monst {
 #ifdef PMNAME_MACROS
 #define Mgender(mon) ((mon)->female ? FEMALE : MALE)
 #endif
+/* mresists from any source - innate, intrinsic, or extrinsic */
+#define mon_resistancebits(mon) \
+    ((mon)->data->mresists | (mon)->mextrinsics | (mon)->mintrinsics)
+#define resists_fire(mon)   Resists_Elem(mon, FIRE_RES)
+#define resists_cold(mon)   Resists_Elem(mon, COLD_RES)
+#define resists_sleep(mon)  Resists_Elem(mon, SLEEP_RES)
+#define resists_disint(mon) Resists_Elem(mon, DISINT_RES)
+#define resists_elec(mon)   Resists_Elem(mon, SHOCK_RES)
+#define resists_poison(mon) Resists_Elem(mon, POISON_RES)
+#define resists_acid(mon)   Resists_Elem(mon, ACID_RES)
+#define resists_ston(mon)   Resists_Elem(mon, STONE_RES)
+
+#define is_lminion(mon) \
+    (is_minion((mon)->data) && mon_aligntyp(mon) == A_LAWFUL)
+
+/* x is a valid index into mons[] array */
+#define ismnum(x) ((x) >= LOW_PM && (x) < NUMMONS)
 
 #endif /* MONST_H */

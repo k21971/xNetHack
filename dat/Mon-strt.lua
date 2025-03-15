@@ -6,12 +6,12 @@
 --
 --	The "start" level for the quest.
 --
---	Here you meet your (besieged) class leader, the Grand Master
+--	Here you meet your (besieged) class leader, the Chan-Sune Lama
 --	and receive your quest assignment.
 --
 des.level_init({ style = "solidfill", fg = " " });
 
-des.level_flags("mazelevel", "hardfloor", "outdoors")
+des.level_flags("mazelevel", "hardfloor", "outdoors", "noflipx")
 
 des.map([[
 ,,,,T,,,,,,,,,T,,,|,,,,,....,|.}}}.|T,,,,,,.........T....-...T.--....T,,,,,,
@@ -61,8 +61,8 @@ des.door("random", 66,17)
 -- Unattended Altar - unaligned due to conflict - player must align it.
 des.altar({ x=44,y=18, align="noalign", type="altar" })
 
--- The Grand Master
-des.monster({ id = "Grand Master", coord = {49, 09}, inventory = function()
+-- The Chan-Sune Lama
+des.monster({ id = "Chan-Sune Lama", coord = {49, 09}, inventory = function()
    des.object({ id = "robe", spe = 6 });
 end })
 -- guards for the audience chamber
@@ -87,14 +87,13 @@ des.object({ id = "chest", trapped = 0, coord = {51,08},
           })
 des.object({ id = "chest", trapped = 0, coord = {51,11},
              contents = function()
-                for i=1,5 do
-                   des.object("%")
-                end
+               -- ensure enough vegetarian food generates for vegetarian games
+               des.object({ id="food ration", coord = {46, 4}, quantity = 4})
              end
           })
 -- next to leader, so possibly tricky to pick up if not ready for quest yet;
 -- there's no protection against a xorn eating these tins; BUC state is random
-des.object({ id="tin", coord = {29, 10}, quantity=2, montype="spinach" })
+des.object({ id="tin", coord = {50, 09}, quantity=2, montype="spinach" })
 
 -- Non diggable walls - try to hit as few trees as possible
 des.non_diggable(selection.area(16,00,18,19))

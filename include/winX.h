@@ -1,4 +1,4 @@
-/* NetHack 3.7	winX.h	$NHDT-Date: 1643491525 2022/01/29 21:25:25 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.52 $ */
+/* NetHack 3.7	winX.h	$NHDT-Date: 1740795096 2025/02/28 18:11:36 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.65 $ */
 /* Copyright (c) Dean Luick, 1992                                 */
 /* NetHack may be freely redistributed.  See license for details. */
 
@@ -26,6 +26,19 @@
 #endif
 #endif
 
+/* winX.c uses XtOffset() and the way that that macro is defined in
+   <X11/Intrinsic.h> triggers "performing pointer subtraction with
+   a null pointer has undefined behavior" warnings; this modified
+   edition doesn't guarantee defined behavior but does silence those
+   warnings without needing to know whether current compiler version
+   supports the '-Wno-null-pointer-subtraction' option */
+#ifdef XtOffset
+#undef XtOffset
+#define XtOffset(p_type,field) \
+    ((Cardinal) (((ptrdiff_t) (char *) (&(((p_type) NULL)->field)))     \
+                 - ((ptrdiff_t) (char *) NULL)))
+#endif
+
 /*
  * Generic text buffer.
  */
@@ -49,7 +62,6 @@ typedef unsigned char X11_color;
 #endif
 struct text_map_info_t {
     X11_map_symbol text[ROWNO][COLNO];  /* Actual displayed screen. */
-#ifdef TEXTCOLOR
     X11_color colors[ROWNO][COLNO];     /* Color of each character. */
     X11_color framecolors[ROWNO][COLNO];  /* Color of background
                                                  behind text */
@@ -57,7 +69,8 @@ struct text_map_info_t {
         inv_color_gcs[CLR_MAX];         /* GC for each inverse color */
 #define copy_gc color_gcs[NO_COLOR]
 #define inv_copy_gc inv_color_gcs[NO_COLOR]
-#else
+#if 0
+    /* was else from old textcolor days */
     GC copy_gc,      /* Drawing GC */
         inv_copy_gc; /* Inverse drawing GC */
 #endif
@@ -157,6 +170,7 @@ typedef struct x11_mi {
     long pick_count;     /* specific selection count; -1 if none */
     char *str;           /* The text of the item. */
     int attr;            /* Attribute for the line. */
+    int color;           /* Color for the line. */
     boolean selected;    /* Been selected? */
     boolean preselected; /*   in advance?  */
     unsigned itemflags;  /* MENU_ITEMFLAGS_foo */
@@ -266,7 +280,6 @@ struct xwindow {
                           /* event into a character(s)             */
 
 #define DEFAULT_LINES_DISPLAYED 12 /* # of lines displayed message window */
-#define MAX_HISTORY 60             /* max history saved on message window */
 
 /* flags for X11_yn_function_core() */
 #define YN_NORMAL     0U /* no flags */
@@ -488,10 +501,6 @@ extern void X11_status_finish(void);
 extern void X11_status_enablefield(int, const char *, const char *, boolean);
 extern void X11_status_update(int, genericptr_t, int, int, int,
                               unsigned long *);
-
-/* other defs that really should go away (they're tty specific) */
-extern void X11_start_screen(void);
-extern void X11_end_screen(void);
 
 #ifdef GRAPHIC_TOMBSTONE
 extern void X11_outrip(winid, int, time_t);

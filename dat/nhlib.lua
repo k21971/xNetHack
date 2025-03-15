@@ -73,15 +73,6 @@ www]]
    return selection.match(deadendN) | selection.match(deadendE) | selection.match(deadendS) | selection.match(deadendW)
 end
 
--- dumb function for stuff that requires a number
-function bool2int(b)
-   if b then
-      return 1
-   else
-      return 0
-   end
-end
-
 -- for Cocytus monster generation to avoid repeating this list
 function get_icymon_list()
    return { 'ice vortex', 'ice troll', 'freezing sphere', 'winter wolf',
@@ -145,17 +136,23 @@ end
 
 function tutorial_enter()
    -- nh.pline("TUT:enter");
+
+   -- add the tutorial branch callbacks
+   nh.callback("cmd_before", "tutorial_cmd_before");
+   nh.callback("end_turn", "tutorial_turn");
+
+   -- save state for later restore
    nh.gamestate();
 end
 
 function tutorial_leave()
    -- nh.pline("TUT:leave");
 
-   -- remove the tutorial level callbacks
+   -- remove the tutorial branch callbacks
    nh.callback("cmd_before", "tutorial_cmd_before", true);
-   nh.callback("level_enter", "tutorial_enter", true);
-   nh.callback("level_leave", "tutorial_leave", true);
    nh.callback("end_turn", "tutorial_turn", true);
+
+   -- restore state for regular play
    nh.gamestate(true);
 end
 

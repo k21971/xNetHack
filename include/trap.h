@@ -103,12 +103,21 @@ enum trap_types {
 };
 
 /* some trap-related function return results */
-enum { Trap_Effect_Finished = 0,
-       Trap_Is_Gone = 0,
-       Trap_Caught_Mon = 1,
-       Trap_Killed_Mon = 2,
-       Trap_Moved_Mon = 3, /* new location, or new level */
+enum trap_result {
+    Trap_Effect_Finished = 0,
+    Trap_Is_Gone = 0,
+    Trap_Caught_Mon = 1,
+    Trap_Killed_Mon = 2,
+    Trap_Moved_Mon = 3, /* new location, or new level */
 };
+
+/* return codes from immune_to_trap() */
+enum trap_immunities {
+    TRAP_NOT_IMMUNE = 0,
+    TRAP_CLEARLY_IMMUNE = 1,
+    TRAP_HIDDEN_IMMUNE = 2,
+};
+
 
 #define is_pit(ttyp) ((ttyp) == PIT || (ttyp) == SPIKED_PIT)
 #define is_hole(ttyp)  ((ttyp) == HOLE || (ttyp) == TRAPDOOR)
@@ -123,6 +132,8 @@ enum { Trap_Effect_Finished = 0,
                                || (ttyp) == POLY_TRAP)
 /* "transportation" traps */
 #define is_xport(ttyp) ((ttyp) >= TELEP_TRAP && (ttyp) <= MAGIC_PORTAL)
+#define fixed_tele_trap(t) ((t)->ttyp == TELEP_TRAP \
+                            && isok((t)->teledest.x,(t)->teledest.y))
 
 /* List of traps that can be triggered by interacting with a door. */
 enum doortrap_types {
@@ -140,12 +151,34 @@ enum doortrap_types {
      * hurtle(u.ux - doorx, u.uy - doory, 1, FALSE) */
 };
 
-/* Return codes from immune_to_trap. */
-enum trap_immunities {
-    TRAP_NOT_IMMUNE = 0,
-    TRAP_CLEARLY_IMMUNE,
-    TRAP_HIDDEN_IMMUNE
+/* Possible return values for doortrapped() */
+enum doortrap_returns {
+    DOORTRAPPED_NOCHANGE = 0, /* doorstate is not changed, caller can continue
+                                 to do things with it */
+    DOORTRAPPED_CHANGED,      /* doorstate is changed but not destroyed */
+    DOORTRAPPED_DESTROYED     /* door was destroyed by trap, now D_BROKEN */
 };
+
+/* Flags for the "when" argument of doortrapped(), indicating what the caller is
+ * doing with the door at this point.
+ * "Pre" means traps that trigger before the caller has "done" anything to the
+ * door, such as traps that trigger just by touching it like STATIC_SHOCK.
+ * "Post" means traps that trigger after the caller has interacted with the
+ * door, such as WATER_BUCKET.
+ * "Both" just triggers all possible traps, such as when zapping striking at a
+ * door to destroy it.
+ */
+#define DOOR_TRAP_PRE 0x1
+#define DOOR_TRAP_POST 0x2
+
+/* These are convenience "functions" so the caller doesn't have to worry about
+ * the DOOR_TRAP_* flags. */
+#define predoortrapped(x, y, mon, body, act) \
+    doortrapped(x, y, mon, body, act, DOOR_TRAP_PRE)
+#define postdoortrapped(x, y, mon, body, act) \
+    doortrapped(x, y, mon, body, act, DOOR_TRAP_POST)
+#define alldoortrapped(x, y, mon, body, act) \
+    doortrapped(x, y, mon, body, act, (DOOR_TRAP_PRE | DOOR_TRAP_POST))
 
 /* Values for deltrap_with_ammo */
 enum deltrap_handle_ammo {
@@ -155,10 +188,5 @@ enum deltrap_handle_ammo {
     DELTRAP_BURY_AMMO,       /* bury ammo under where trap was */
     DELTRAP_TAKE_AMMO        /* put ammo into player's inventory */
 };
-
-#define predoortrapped(x, y, mon, body, act) \
-    doortrapped(x, y, mon, body, act, 0)
-#define postdoortrapped(x, y, mon, body, act) \
-    doortrapped(x, y, mon, body, act, 1)
 
 #endif /* TRAP_H */

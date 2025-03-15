@@ -33,7 +33,7 @@ des.replace_terrain({ fromterrain='.', toterrain='F', chance=3 })
 -- Define areas
 local everything = selection.area(00,00,74,17)
 local allfloor = everything:filter_mapchar('.')
-local yeen_area = selection.circle(67,09, 5, 0)
+local yeen_area = selection.circle(67,09, 5, 0):filter_mapchar('.')
 
 -- Teleport region to constrain arrival to near the stairs
 des.teleport_region({ region={00,00,05,17} })
@@ -50,7 +50,7 @@ des.monster({ id='Yeenoghu', coord={Yx,Yy}, waiting=1, inventory=function()
 end })
 des.object({ id='chest', locked=true, coord={Yx,Yy}, buried=true, material='iron',
              contents=function()
-   if nh.is_wish_dlord('Yeenoghu') then
+   if nh.is_wish_archfiend('Yeenoghu') then
       des.object({ class='/', id='wishing', spe=1 })
    else
       des.object({ class='/', id='magic missile' })

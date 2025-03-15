@@ -6,7 +6,7 @@
 
 des.level_flags("mazelevel", "noflip");
 
--- Don't place any prefab over top of another feature. To do this, ensure that
+-- Don't place any prefab over top of another. To do this, ensure that
 -- rnd_halign will never return the same value twice:
 used_haligns = {}
 function rnd_halign()
@@ -98,6 +98,7 @@ xxxxxx.xxxxxx
 ]], contents = function()
    des.non_diggable(selection.area(2,2, 10,8));
    des.region(selection.area(4,4, 8,6), "lit");
+   des.exclusion({ type = "teleport", region = { 2,2, 10,8 } });
    local dblocs = {
       { x = 1, y = 5, dir="east", state="closed" },
       { x = 11, y = 5, dir="west", state="closed" },
@@ -161,6 +162,7 @@ x........x
 x........x
 xx......xx
 xxxx..xxxx]], contents = function()
+         des.exclusion({ type = "teleport", region = { 4,4, 5,5 } });
          local mons = { "Angel", "D", "H", "L" };
          des.monster(mons[math.random(1, #mons)], 4,4);
       end });
@@ -178,6 +180,7 @@ x.......x
 ..}}}}}..
 x.......x
 ]], contents = function(rm)
+         des.exclusion({ type = "teleport", region = { 3,3, 5,5 } });
          des.monster("L",04,04)
          des.object('"',04,04)
       end })
@@ -360,17 +363,26 @@ end
 
 local prefab1 = d(#hell_prefabs)
 local prefab2 = d(#hell_prefabs)
-local prefab3 = d(#hell_prefabs)
 
-if percent(60) then
-   hell_prefabs[prefab1]()
-end
--- Don't allow multiple of the same prefab on the same level.
-if percent(50) and prefab2 ~= prefab1 then
-   hell_prefabs[prefab2]()
-end
-if percent(40) and prefab3 ~= prefab2 and prefab3 ~= prefab1 then
-   hell_prefabs[prefab3]()
+-- Previously, we generated up to 3 different prefabs on the same level.
+-- ensuring they all were aligned at one of the different half-LR or center
+-- alignments. However, some prefabs are wide enough that they intersect at
+-- those alignments, leading to various sanity check failures.
+-- Now, we ensure there will never be a center prefab at the same time as a
+-- half-left or half-right prefab.
+
+if percent(10) then
+   -- no prefab
+else
+   if percent(33) then
+      -- two prefabs at half-left and half-right
+      used_haligns['center'] = true -- block it from generating
+      hell_prefabs[prefab1]()
+      hell_prefabs[prefab2]()
+   else
+      -- one prefab in random alignment
+      hell_prefabs[prefab1]()
+   end
 end
 
 des.stair("up")

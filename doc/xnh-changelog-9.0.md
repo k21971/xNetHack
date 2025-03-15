@@ -3,7 +3,7 @@
 This is a major version of xNetHack. It is based directly on xNetHack 8.0, and
 is a fork off the vanilla NetHack 3.7.0 development version release.
 
-The most recent vanilla commit incorporated into xNetHack 9.0 is 2abe156. Note
+The most recent vanilla commit incorporated into xNetHack 9.0 is df06fc3. Note
 that because 3.7.0 is still in development status, xNetHack contains major
 changes including new monsters, new objects, themed rooms, and other things
 *not* documented in this file or other xNetHack changelogs. See doc/fixes37.0
@@ -90,6 +90,117 @@ changes:
   chance for higher levels of skill.
 - Being Skilled or better in martial arts or bare-handed combat now confers an
   bonus to AC when not wearing any body armor or a shield.
+- New artifact The Amulet of Storms: a chaotic amulet of flying that grants
+  shock resistance when worn and allows you to chat to hostile vortices, air
+  elementals, and storm giants to pacify them. It also prevents you from being
+  paralyzed by lightning on the Plane of Air.
+- The bigroom variant which contains patches of light and darkness has a new
+  variation with randomly generated "spotlights" of lit area.
+- Martial arts users with at least Basic skill (all monks and samurai) no longer
+  take damage or wound their legs when kicking inadvisable things.
+- Lawful minions' weapons can no longer rarely be very highly enchanted; swords
+  they get will be +0 to +3, and maces +3 to +6.
+- Attacking with no weapon is now handled the same as vanilla, meaning multiple
+  attacks will hit with alternating hands, and you will always lead with your
+  dominant hand. This mainly has implications for if you are hitting monsters
+  with rings made of materials they hate.
+- Object merging now follows vanilla rules - there are a few cases where objects
+  won't immediately merge such as being blind or hallucinating and not fully
+  knowing one of the objects.
+- Pauper characters get their normal race-based skill caps (but not any actual
+  skill in them, same as everyone else).
+- Monsters break ammo less often - 25% of the time assuming it isn't influenced
+  by beatitude or enchantment.
+- Zapping oneself with a wand of make invisible confers 30+d15 turns of
+  invisibility, down from 50+d50.
+- A vampire reforming from fog cloud form on a wooden door's space will always
+  smash it; on an iron door's space, they will never smash it unless the door
+  was trapped to explode.
+- Vanilla artifact gift rebalance is mostly unchanged, except that it still only
+  considers the number of gifts you have already received and artifacts randomly
+  generating won't harm it.
+  - Mirror Brand will be +1 if gifted and requires a sacrifice of difficulty 5+.
+  - The Apple of Discord requires a sacrifice of difficulty 7+.
+  - The Amulet of Storms requires a sacrifice of difficulty 2+.
+- Bone items now have a +1 damage bonus against ghosts and shades.
+- Saving grace will not alleviate death from falling into open air and
+  splattering on the ground below.
+- Grappling hooks can no longer generate as plastic or glass.
+- Glass weapons as well as armor are subject to the 3-stages-of-cracking system,
+  instead of randomly shattering. Like armor, a glass weapon taking a light
+  impact has a 10% chance of cracking (unless it's tempered).
+- Heavy objects that hit non-tempered glass armor (boulders, iron balls, etc)
+  will unconditionally crack it.
+- Glass piercers that fall on a monster wearing a non-tempered glass helm will
+  still shatter the helm in a single hit.
+- Falling rocks from traps or from zapping at the ceiling can crack non-tempered
+  glass helmets; this is considered a light impact so it only happens 10% of the
+  time.
+- Enchanting a mundane harp, flute, whistle, or drum will identify the magical
+  counterpart it turns into. (Not so for tooled horns or sacks, which could turn
+  into different items and are ambiguous).
+- Dipping for Excalibur can only be done at level 5 if the hero is a Knight who
+  has never abused their alignment. Otherwise, the minimum level is 10.
+- The Monk quest has received an overhaul:
+  - Note: the home and locate level and some parts of the quest text were
+    modified in previous xNetHack versions. Those largely haven't changed in
+    this version.
+  - The Monk quest leader is now named the Chan-Sune Lama.
+  - The Monk lower filler levels are no longer standard room-and-corridor: they
+    are an interconnected set of rooms with various types of things blocking the
+    ways between them.
+  - The Monk goal level is a chamber, smaller, walled in, and with several
+    wings. It contains mostly the same enemies as the former goal level, but
+    does not contain any lava.
+  - The Monk quest text is now fully unique and does not contain any more
+    copy-pasted lines from the Priest quest text.
+  - The Monk quest is only counted as completed when you return to the quest
+    leader having killed Master Kaen, not merely by returning the Eyes of the
+    Overworld.
+  - The 5 random comestibles in a chest on the Monk quest start level are
+    replaced with 4 food rations.
+  - Master Kaen can phase through walls and boulders, and casts summon
+    elementals instead of summon insects.
+- One giant on the Valkyrie quest goal level may have a fire horn.
+- You can now play a Barbarian as a dwarf. Barbarians can consequently be
+  lawful.
+- You can now play a Tourist as a gnome.
+- You can now play a Rogue as an elf.
+- Several xNetHack themed rooms have been converted into themed room fills
+  so that they can appear in rooms of varying shape, not just rectangles:
+  - "Graffiti room"
+  - "Scummy moldy room"
+  - "Gas spore den"
+  - "Water temple"
+  - "Meadow"
+- The xNetHack "Garden" themed room is removed (but the vanilla "Garden" themed
+  room fill is still present).
+- The "Garden" themed room, which contains wood nymphs, now only generates a
+  couple levels after wood nymphs can start appearing, and it may contain some
+  gnome statues.
+- 3 new themed room fills:
+  - "Minesweeper": contains buried land mines and engravings which denote how
+    many mines there are adjacent to that spot.
+  - "Monster sauna": steam vortices, fog clouds, clouds of steam, towels, and a
+    few random monsters
+  - "Scattered gems": contains a number of gems (but no rocks or gray stones)
+    strewn about
+- 7 new themed rooms:
+  - "The Casque of Amontillado": contains a walled-off closet in which an
+    unfortunate has been imprisoned until their death
+  - "Triple Rhombus V2": three rhombi connected in a horizontal row. Eligible
+    for random fills.
+  - "Spikes": three upward pointing connected triangles. Eligible for random
+    fills.
+  - "Pennants": three downward pointing connected triangles. Eligible for random
+    fills.
+  - "Wizard study": a disconnected 3x3 vault-like room containing some
+    spellbooks, scrolls, other magic items, and a teleportation trap.
+  - "Ring, medium": a circular 1-space-wide ring. Eligible for random fills.
+  - "Ring, large": a larger version of the above circular ring.
+- The "Mini maze" themed room has a slightly larger maze.
+- The "Dragon hall" themed room can now appear when the level difficulty is 21,
+  rather than 23.
 
 ### Interface changes
 
@@ -121,6 +232,48 @@ changes:
   - Monster drinking a potion where you can't see while hallucinating.
 - There is now a pager message for the bridge in the Valkyrie locate level being
   restored.
+- There is no longer a S_engraving character. Instead, there are the S_engroom
+  and S_engrcorr ones from vanilla, which represent engravings in rooms (or
+  other non-corridor terrain) and corridors respectively. However, the default
+  ASCII glyphs for both of these have been changed to the former default glyph
+  for S_engraving, "~", instead of vanilla's "`". They can still be mapped to
+  a symbol of the player's preference via the SYMBOLS option.
+- Paranoid swim and paranoid trap are reverted to vanilla behavior, meaning if
+  you don't have paranoid trap set, you aren't prompted to confirm before moving
+  into a not-obviously-harmless trap, and if you do have it set, you only need
+  to type "y" to move in instead of "yes" (unless paranoid_confirmation:Confirm
+  is also set).
+- Secret door detection wands no longer produce a "You find many hidden bugs on
+  the floor" message since they always unambiguously identify themselves.
+- Erodeproof glass objects are now referred to as "tempered" rather than
+  "shatterproof", though shatterproof will still be treated as valid for wishes.
+  "Indestructible" is still used for glass items which have been made immune to
+  shock damage from erodeproofing - i.e. rings and wands.
+- Inventory weights are formatted as "(x aum)" instead of "{x}".
+- Archfiends (besides Juiblex) now render as regular magenta &, the same as
+  vanilla. The Riders are still bright magenta.
+- Vrocks are now green, the same as vanilla.
+- Erinyes are now orange.
+- Print a message "You crash into the ground" when taking damage falling down a
+  hole or a trap door.
+- Nonmagic flutes and harps display as "mundane flute" and "mundane harp" when
+  fully identified.
+- Attribute display from enlightenment shows whether and how much you ever
+  abused your alignment (in wizard mode, you are also shown the exact amount).
+- Iron doors have distinct defsyms and tiles from ordinary doors.
+  - The new symbols are S_voidoor (vertical open iron), S_vcidoor (vertical
+    closed iron), S_hoidoor (horizontal open iron), and S_hcidoor (horizontal
+    closed iron).
+  - Like all other symbols, these can be redefined with SYMBOLS in the
+    configuration options.
+  - The new default tiles have the same shape as regular doors, but use the iron
+    color palette instead of brown.
 
 ### Architectural changes
 
+- The monster ID of the quest nemesis is now tracked similar to the quest
+  leader's.
+- current_holidays() now lives in calendar.c.
+- Hash functions now live in rnd.c.
+- Some (but not all) xNetHack-added functions are annotated with the NONNULL*
+  attributes.

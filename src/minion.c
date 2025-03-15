@@ -21,6 +21,7 @@ newemin(struct monst *mtmp)
     if (!EMIN(mtmp)) {
         EMIN(mtmp) = (struct emin *) alloc(sizeof(struct emin));
         (void) memset((genericptr_t) EMIN(mtmp), 0, sizeof(struct emin));
+        EMIN(mtmp)->parentmid = mtmp->m_id;
     }
 }
 
@@ -92,6 +93,9 @@ msummon(struct monst *mon)
         dtype = (!rn2(50)) ? dprince(atyp) : (!rn2(20)) ? dlord(atyp)
                                                         : ndemon(atyp);
         cnt = !rn2(4) ? rn1(3, 2) : rn1(2, 1);
+    } else if (ptr == &mons[PM_BONE_DEVIL]) {
+        dtype = PM_SKELETON;
+        cnt = 1;
     } else if (is_ndemon(ptr)) {
         dtype = (!rn2(20)) ? dlord(atyp) : (!rn2(6)) ? ndemon(atyp)
                                                      : monsndx(ptr);
@@ -107,7 +111,7 @@ msummon(struct monst *mon)
         if (!rn2(6)) {
             switch (atyp) { /* see summon_minion */
             case A_NEUTRAL:
-                dtype = elementals[rn2(SIZE(elementals))];
+                dtype = ROLL_FROM(elementals);
                 break;
             case A_CHAOTIC:
             case A_NONE:
@@ -124,7 +128,7 @@ msummon(struct monst *mon)
     /* put overrides for specific summoners here, but note they have to check
      * for dtype being NON_PM before using it */
     if (ptr == &mons[PM_DISPATER]
-        && ((gm.mvitals[PM_PIT_FIEND].mvflags & G_GONE) == 0)
+        && ((svm.mvitals[PM_PIT_FIEND].mvflags & G_GONE) == 0)
         && (dtype == NON_PM || is_ndemon(&mons[dtype])) && !rn2(2)) {
         /* Dispater favors pit fiends, despite them being chaotic */
         dtype = PM_PIT_FIEND;
@@ -140,7 +144,7 @@ msummon(struct monst *mon)
      * If this daemon is unique and being re-summoned (the only way we
      * could get this far with an extinct dtype), try another.
      */
-    if ((gm.mvitals[dtype].mvflags & G_GONE) != 0) {
+    if ((svm.mvitals[dtype].mvflags & G_GONE) != 0) {
         dtype = ndemon(atyp);
         if (dtype == NON_PM)
             return 0;
@@ -204,7 +208,7 @@ msummon(struct monst *mon)
 void
 summon_minion(aligntyp alignment, boolean talk)
 {
-    register struct monst *mon;
+    struct monst *mon;
     int mnum;
 
     switch ((int) alignment) {
@@ -212,7 +216,7 @@ summon_minion(aligntyp alignment, boolean talk)
         mnum = lminion();
         break;
     case A_NEUTRAL:
-        mnum = elementals[rn2(SIZE(elementals))];
+        mnum = ROLL_FROM(elementals);
         break;
     case A_CHAOTIC:
     case A_NONE:
@@ -287,7 +291,7 @@ boss_entrance(struct monst* mtmp)
         return FALSE;
     }
 
-    if (gm.mvitals[mondx].died > 0) {
+    if (svm.mvitals[mondx].died > 0) {
         /* Never print entrance message if the player already killed it. */
         return FALSE;
     }
@@ -380,7 +384,7 @@ demon_value(struct obj *obj)
 
 /* returns 1 if it won't attack. */
 int
-demon_talk(register struct monst *mtmp)
+demon_talk(struct monst *mtmp)
 {
     long cash, demand, offer = 0L;
     struct obj *otmp, *shiny = (struct obj *) 0;
@@ -434,7 +438,8 @@ demon_talk(register struct monst *mtmp)
      * has reached them, since they do not want to end up dead. */
     demand = d(50,1000);
     cash = money_cnt(gi.invent);
-    verbalize("Mortal, if thou canst pay, I shall not hinder thee later.");
+    verbalize("Mortal, if thou canst pay, I shall not hinder thee %s.",
+              u.uevent.uamultouch ? "further" : "later");
 
     /* First, they may want some of your valuables more than gold. See if they
      * do. */
@@ -464,7 +469,7 @@ demon_talk(register struct monst *mtmp)
             }
 
             if (shiny->owornmask) {
-                remove_outer_gear(shiny);
+                remove_outer_gear(mtmp, shiny);
                 remove_worn_item(shiny, TRUE);
             }
             items_given++;
@@ -494,7 +499,7 @@ demon_talk(register struct monst *mtmp)
     else if (items_given == 0 && (cash == 0 || gm.multi < 0)) {
         /* you have no gold or can't move */
         pline("%s roars:", Amonnam(mtmp));
-        verbalize("You bring me no tribute?  Then you must die!");
+        verbalize("Thou bringest me no tribute?  Then thou shalt die!");
         mtmp->mpeaceful = 0;
         set_malign(mtmp);
         newsym(mtmp->mx, mtmp->my);
@@ -519,7 +524,11 @@ demon_talk(register struct monst *mtmp)
         else if (canseemon(mtmp))
             pline("%s seems to be demanding your money.", Amonnam(mtmp));
 
-        offer = bribe(mtmp);
+        if (cash < 1)
+            pline("But you have no money.");
+        else
+            offer = bribe(mtmp);
+
         if (offer >= demand) {
             verbalize("Very well, mortal. I shall not impede thy quest.");
             pline("%s vanishes, laughing about cowardly mortals.",
@@ -585,7 +594,7 @@ bribe(struct monst *mtmp)
         You("give %s %ld %s.", mon_nam(mtmp), offer, currency(offer));
     }
     (void) money2mon(mtmp, offer);
-    gc.context.botl = 1;
+    disp.botl = TRUE;
     return offer;
 }
 
@@ -596,7 +605,7 @@ dprince(aligntyp atyp)
 
     for (tryct = !In_endgame(&u.uz) ? 20 : 0; tryct > 0; --tryct) {
         pm = rn1(PM_DEMOGORGON + 1 - PM_ORCUS, PM_ORCUS);
-        if (!(gm.mvitals[pm].mvflags & G_GONE)
+        if (!(svm.mvitals[pm].mvflags & G_GONE)
             && (atyp == A_NONE || sgn(mons[pm].maligntyp) == sgn(atyp)))
             return pm;
     }
@@ -615,7 +624,7 @@ dlord(aligntyp atyp)
          * G_EXTINCT set. Instead, check the born counter (which also works fine
          * for Yeenoghu or any other archfiend since the outcome is the same -
          * if they have already been generated, they can't be summoned. */
-        if (!(gm.mvitals[pm].born)
+        if (!(svm.mvitals[pm].born)
             && (atyp == A_NONE || sgn(mons[pm].maligntyp) == sgn(atyp)))
             return pm;
     }
@@ -626,7 +635,7 @@ dlord(aligntyp atyp)
 int
 llord(void)
 {
-    if (!(gm.mvitals[PM_ARCHON].mvflags & G_GONE))
+    if (!(svm.mvitals[PM_ARCHON].mvflags & G_GONE))
         return PM_ARCHON;
 
     return lminion(); /* approximate */
@@ -672,7 +681,8 @@ ndemon(aligntyp atyp) /* A_NONE is used for 'any alignment' */
 
 /* guardian angel has been affected by conflict so is abandoning hero */
 void
-lose_guardian_angel(struct monst *mon) /* if null, angel hasn't been created yet */
+lose_guardian_angel(
+    struct monst *mon) /* if Null, angel hasn't been created yet */
 {
     coord mm;
     int i;
@@ -777,10 +787,10 @@ geryon_bonus(void)
     static int bonus = 0;
     struct monst *mtmp;
 
-    if (gm.moves == lastturncheck)
+    if (svm.moves == lastturncheck)
         return bonus; /* already calculated this turn */
 
-    lastturncheck = gm.moves;
+    lastturncheck = svm.moves;
     bonus = 0;
     if (Is_geryon_level(&u.uz)) {
         for (mtmp = fmon; mtmp; mtmp = mtmp->nmon) {
@@ -830,11 +840,11 @@ angry_geryon(void)
      * born = X, died = X (repeated resurrecting ending with a kill)
      */
     if (!geryon && (lookup_fiend(PM_GERYON)->num_in_dgn == 0)
-        && (gm.mvitals[PM_GERYON].born == 0
-            || gm.mvitals[PM_GERYON].born > gm.mvitals[PM_GERYON].died)) {
+        && (svm.mvitals[PM_GERYON].born == 0
+            || svm.mvitals[PM_GERYON].born > svm.mvitals[PM_GERYON].died)) {
         /* Geryon hasn't generated yet OR has generated and been bribed
          * away, in which case he comes back mad; generate him now */
-        boolean never_generated = (gm.mvitals[PM_GERYON].born == 0);
+        boolean never_generated = (svm.mvitals[PM_GERYON].born == 0);
         geryon = makemon(&mons[PM_GERYON], u.ux, u.uy,
                          MM_NOMSG | MM_ADJACENTOK);
         if (!geryon) {
@@ -882,7 +892,7 @@ init_archfiends(void)
  * given archfiend. */
 struct fiend_info *
 lookup_fiend(int mndx) {
-    return &gc.context.archfiends[mndx - FIRST_ARCHFIEND];
+    return &svc.context.archfiends[mndx - FIRST_ARCHFIEND];
 }
 
 /* Should the given archfiend be giving the player a bad effect?
@@ -907,7 +917,7 @@ fiend_adversity(int mndx)
     else if (fnd->num_in_dgn > 0)
         /* they are alive and kicking somewhere in the dungeon */
         return TRUE;
-    else if (gm.mvitals[mndx].born == 0)
+    else if (svm.mvitals[mndx].born == 0)
         /* they were never encountered, thus not dealt with */
         return TRUE;
 
