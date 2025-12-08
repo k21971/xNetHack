@@ -36,9 +36,18 @@ changes:
 - The spell of restore ability has the same effects, except for curing illness.
 - Monsters hit by a potion of restore ability get cured of any blindness,
   confusion, or stunning, instead of being healed to full HP.
+- If the hero is hit with cancellation, they lose all their magic energy.
+- Throwing gems that are type-named but not fully identified at a coaligned
+  unicorn no longer gives +2 luck; they are treated the same as non-type-named
+  gems, giving +1 luck.
+- Items with a base iron or metal type generate as silver less often (2% of the
+  time instead of 5%), and as mithril less often (1% of the time instead of 3%).
+  Their chance of generating as copper, wood, or iron is slightly increased.
 
 ### Interface changes
 
+- There is a visual effect associated with the monster (or the hero) being
+  hit with cancellation.
 
 ### Architectural changes
 
