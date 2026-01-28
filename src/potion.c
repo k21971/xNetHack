@@ -791,15 +791,46 @@ peffect_restore_ability(struct obj *otmp)
                 i = 0;
         }
 
+        /* allow the potion and not the spell to recover lost maximum HP and
+         * energy (without restoring any _actual_ HP or energy); difficult to
+         * ever get all of a large loss back, but you can get decently close
+         * with multiple potions.
+         * Does not work unless you are at the highest experience level you have
+         * reached in this game.
+         * Otherwise, this enables drain-for-gain shenanigans because peak HP
+         * and energy are not tracked per-level.
+         * Effectively, you get either level restoration (below) or max HP
+         * restoration, but not both at once. */
+        if (otmp->otyp == POT_RESTORE_ABILITY && u.ulevel == u.ulevelpeak) {
+            int gain;
+            int oldhpmax = u.uhpmax;
+            int oldenmax = u.uenmax;
+            /* Half the difference rounding up, +1 extra if potion is blessed */
+            if (u.uhpmax < u.uhppeak) {
+                gain = (u.uhppeak - u.uhpmax + 1) / 2;
+                if (otmp->blessed)
+                    gain++;
+                u.uhpmax = min(u.uhpmax + gain, u.uhppeak);
+            }
+            if (u.uenmax < u.uenpeak) {
+                gain = (u.uenpeak - u.uenmax + 1) / 2;
+                if (otmp->blessed)
+                    gain++;
+                u.uenmax = min(u.uenmax + gain, u.uenpeak);
+            }
+            if (u.uhpmax != oldhpmax || u.uenmax != oldenmax)
+                disp.botl = TRUE;
+        }
+
         /* when using the potion (not the spell) also restore lost levels,
            to make the potion more worth keeping around for players with
            the spell or with a unihorn; this is better than full healing
            in that it can restore all of them, not just half, and a
            blessed potion restores them all at once */
-        if (otmp->otyp == POT_RESTORE_ABILITY && u.ulevel < u.ulevelmax) {
+        if (otmp->otyp == POT_RESTORE_ABILITY && u.ulevel < u.ulevelpeak) {
             do {
                 pluslvl(FALSE);
-            } while (u.ulevel < u.ulevelmax && otmp->blessed);
+            } while (u.ulevel < u.ulevelpeak && otmp->blessed);
         }
 
         /* also heal wounded legs and most status ailments ("restoring your
@@ -809,6 +840,9 @@ peffect_restore_ability(struct obj *otmp)
          * place. */
         if (Wounded_legs)
             heal_legs(0);
+        u.ucreamed = 0;
+        make_blinded(0L, TRUE);
+        make_deaf(0L, TRUE);
         make_confused(0L, TRUE);
         make_stunned(0L, TRUE);
         make_hallucinated(0L, TRUE, 0L);
@@ -3088,9 +3122,10 @@ potion_dip(struct obj *obj, struct obj *potion)
         }
         if (learn_it && potion->dknown)
             makeknown(POT_RESTORE_ABILITY);
-        if (did_something)
+        if (did_something) {
             poof(potion); /* includes trycall if dknown */
-        return ECMD_TIME;
+            return ECMD_TIME;
+        }
     }
  more_dips:
 
