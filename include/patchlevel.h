@@ -1,4 +1,4 @@
-/* NetHack 3.7	patchlevel.h	$NHDT-Date: 1725653013 2024/09/06 20:03:33 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.264 $ */
+/* NetHack 3.7	patchlevel.h	$NHDT-Date: 1753856387 2025/07/29 22:19:47 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.288 $ */
 /* Copyright (c) Stichting Mathematisch Centrum, Amsterdam, 1985. */
 /*-Copyright (c) Michael Allison, 2012. */
 /* NetHack may be freely redistributed.  See license for details. */
@@ -6,9 +6,9 @@
 #ifndef PATCHLEVEL_H
 #define PATCHLEVEL_H
 
-/* xNetHack 9.0 */
+/* xNetHack 9.1 */
 #define VERSION_MAJOR 9
-#define VERSION_MINOR 0
+#define VERSION_MINOR 1
 /*
  * PATCHLEVEL is updated for each release.
  */
@@ -30,14 +30,15 @@
 /*
  * Development status of this NetHack version.
  */
-#define NH_DEVEL_STATUS NH_STATUS_POSTRELEASE
+#define NH_DEVEL_STATUS NH_STATUS_RELEASED
 
 #ifndef DEBUG  /* allow tool chains to define without causing warnings */
 #define DEBUG
 #endif
 
-#define COPYRIGHT_BANNER_A "xNetHack, Copyright 2025, based on NetHack, Copyright 1985-2025"
-#define COPYRIGHT_BANNER_B "by Stichting Mathematisch Centrum and M. Stephenson."
+#define COPYRIGHT_BANNER_A "xNetHack, Copyright 2026, based on NetHack, Copyright 1985-2026"
+#define COPYRIGHT_BANNER_B \
+    "         By Stichting Mathematisch Centrum and M. Stephenson."
 /* nomakedefs.copyright_banner_c is generated at runtime */
 #define COPYRIGHT_BANNER_C nomakedefs.copyright_banner_c
 #define COPYRIGHT_BANNER_D "         See license for details."
