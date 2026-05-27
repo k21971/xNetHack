@@ -1,4 +1,4 @@
-/* NetHack 3.7	selvar.c	$NHDT-Date: 1769840272 2026/01/30 22:17:52 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.4 $ */
+/* NetHack 5.0	selvar.c	$NHDT-Date: 1769840272 2026/01/30 22:17:52 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.4 $ */
 /* Copyright (c) 2024 by Pasi Kallinen */
 /* NetHack may be freely redistributed.  See license for details. */
 
@@ -710,7 +710,11 @@ selection_do_randline(
             dy = rn2(rough) - (rough / 2);
             mx = ((x1 + x2) / 2) + dx;
             my = ((y1 + y2) / 2) + dy;
-        } while ((mx > COLNO - 1 || mx < 0 || my < 0 || my > ROWNO - 1));
+        } while (!isok(mx, my)
+                 || mx < gx.xstart
+                 || mx >= (gx.xstart + gx.xsize)
+                 || my < gy.ystart
+                 || my >= (gy.ystart + gy.ysize));
     }
 
     if (!selection_getpoint(mx, my, ov)) {

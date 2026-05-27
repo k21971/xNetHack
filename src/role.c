@@ -1,4 +1,4 @@
-/* NetHack 3.7	role.c	$NHDT-Date: 1737607158 2025/01/22 20:39:18 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.107 $ */
+/* NetHack 5.0	role.c	$NHDT-Date: 1737607158 2025/01/22 20:39:18 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.107 $ */
 /* Copyright (c) Stichting Mathematisch Centrum, Amsterdam, 1985-1999. */
 /*-Copyright (c) Robert Patrick Rankin, 2012. */
 /* NetHack may be freely redistributed.  See license for details. */
@@ -312,20 +312,20 @@ const struct Role roles[NUM_ROLES+1] = {
         { "Marksman", "Markswoman" } },
       "Apollo", "_Diana", "Mars", /* Roman/planets */
       "Ran",
-      "Orion's camp",
-      "the cave of the wumpus",
+      "Orion's Grove",
+      "the Cave of the Wumpus",
       PM_RANGER,
       PM_LITTLE_DOG /* Orion & canis major */,
-      PM_ORION,
+      PM_CEDALION,
       PM_HUNTER,
       PM_SCORPIUS,
-      PM_FOREST_CENTAUR,
       PM_SCORPION,
-      S_CENTAUR,
+      PM_FOREST_CENTAUR,
       S_SPIDER,
-      ART_LONGBOW_OF_DIANA,
+      S_CENTAUR,
+      ART_LONGBOW_OF_ORION,
       MH_HUMAN | MH_ELF | MH_GNOME | MH_ORC | ROLE_MALE | ROLE_FEMALE
-          | ROLE_NEUTRAL | ROLE_CHAOTIC,
+          | ROLE_LAWFUL | ROLE_NEUTRAL | ROLE_CHAOTIC,
       /* Str Int Wis Dex Con Cha */
       { 13, 13, 13, 9, 13, 7 },
       { 30, 10, 10, 20, 20, 10 },
@@ -2018,6 +2018,9 @@ role_init(void)
     }
     /* 0 or 1; no gods are neuter, nor is gender randomized */
     svq.quest_status.godgend = !strcmpi(align_gtitle(alignmnt), "goddess");
+
+    if (Role_if(PM_CLERIC))
+        objects[SPE_LIGHT].oc_skill = P_CLERIC_SPELL;
 
 #if 0
 /*

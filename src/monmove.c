@@ -1,4 +1,4 @@
-/* NetHack 3.7	monmove.c	$NHDT-Date: 1737392015 2025/01/20 08:53:35 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.266 $ */
+/* NetHack 5.0	monmove.c	$NHDT-Date: 1737392015 2025/01/20 08:53:35 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.266 $ */
 /* Copyright (c) Stichting Mathematisch Centrum, Amsterdam, 1985. */
 /*-Copyright (c) Michael Allison, 2006. */
 /* NetHack may be freely redistributed.  See license for details. */
@@ -30,6 +30,7 @@ staticfn int vamp_shift(struct monst *, struct permonst *, boolean);
 staticfn void maybe_spin_web(struct monst *);
 staticfn boolean special_juiblex_actions(struct monst *);
 staticfn boolean special_baalzebub_actions(struct monst *);
+staticfn boolean special_scorpius_actions(struct monst *);
 
 /* a11y: give a message when monster moved */
 staticfn void
@@ -964,6 +965,8 @@ dochug(struct monst *mtmp)
         return 0;
     if (mdat == &mons[PM_BAALZEBUB] && special_baalzebub_actions(mtmp))
         return 0;
+    if (mdat == &mons[PM_SCORPIUS] && special_scorpius_actions(mtmp))
+        return 0;
 
     /* If monster is nearby you, and has to wield a weapon, do so.  This
      * costs the monster a move, of course.
@@ -1640,6 +1643,8 @@ postmov(
             if (mtmp->mx)
                 newsym(mtmp->mx, mtmp->my);
             return MMOVE_DIED; /* it died */
+        } else if (mon_offmap(mtmp)) {
+            return MMOVE_DONE;
         }
         ptr = mtmp->data; /* in case mintrap() caused polymorph */
 
@@ -1703,7 +1708,9 @@ postmov(
             u_on_newpos(mtmp->mx, mtmp->my);
             swallowed(0);
         } else {
-            newsym(mtmp->mx, mtmp->my);
+            /* only call newsym() when not a vault guard moving to <0,0> */
+            if (mtmp->mx)
+                newsym(mtmp->mx, mtmp->my);
         }
     } /* mmoved==MMOVE_MOVED */
 
@@ -1834,21 +1841,22 @@ m_move(struct monst *mtmp, int after)
          * attack it.
          */
         if (intruder && intruder != mtmp
-            /* 3.7: this used to use 'dist2() < 2' which meant that intended
+            /* 5.0: this used to use 'dist2() < 2' which meant that intended
                attack was disallowed if they were adjacent diagonally */
             && dist2(mtmp->mx, mtmp->my, tx, ty) <= 2) {
             gb.bhitpos.x = tx, gb.bhitpos.y = ty;
             gn.notonhead = (intruder->mx != tx || intruder->my != ty);
             covetousattack = mattackm(mtmp, intruder);
-            /* 3.7: this used to erroneously use '== 2' (M_ATTK_DEF_DIED) */
+            /* 5.0: this used to erroneously use '== 2' (M_ATTK_DEF_DIED) */
             if (covetousattack & M_ATTK_AGR_DIED)
                 return MMOVE_DIED;
             mmoved = MMOVE_MOVED;
-        } else {
-            mmoved = MMOVE_NOTHING;
+            return postmov(mtmp, ptr, omx, omy, mmoved,
+                           seenflgs, can_tunnel);
         }
         if (!covetous_nonwarper(ptr))
             return postmov(mtmp, ptr, omx, omy, mmoved, seenflgs, can_tunnel);
+        /* otherwise continue with normal AI routine */
     }
 
     /* likewise for shopkeeper, guard, or priest */
@@ -2756,6 +2764,69 @@ special_baalzebub_actions(struct monst *baalz)
         }
     }
     return FALSE;
+}
+
+/* once-per-move actions and effects for Scorpius; return true if this has used
+ * up his move and false if he should continue with his normal actions */
+staticfn boolean
+special_scorpius_actions(struct monst *scorpius)
+{
+    int cnt = d(2,3);
+    int i;
+    int seen = 0;
+    int sensed = 0;
+    boolean madeany = FALSE;
+
+    /* only at half health or lower */
+    if (scorpius->mhp * 2 > scorpius->mhpmax)
+        return FALSE;
+
+    /* can't do it constantly */
+    if (scorpius->mspec_used)
+        return FALSE;
+
+    /* only if sufficiently near player */
+    if (mdistu(scorpius) > 7 * 7)
+        return FALSE;
+
+    if (canspotmon(scorpius)) {
+        if (Deaf) {
+            pline("%s drums on the earth!", Monnam(scorpius));
+        }
+        else {
+            pline("%s emits a shrieking call!", Monnam(scorpius));
+        }
+    }
+    else {
+        You_hear("a horrible shrieking call!");
+    }
+
+    for (i = 0; i < cnt; ++i) {
+        struct permonst *mdat = rn2(3) ? &mons[PM_SCORPION]
+                                       : &mons[PM_GIANT_SCORPION];
+        struct monst *newmon = makemon(mdat, scorpius->mx, scorpius->my,
+                                       MM_ADJACENTOK | MM_ANGRY | MM_NOMSG);
+        if (!newmon)
+            continue;
+        madeany = TRUE;
+        if (canseemon(newmon))
+            seen++;
+        else if (canspotmon(newmon))
+            sensed++;
+    }
+    if (seen >= 1) {
+        pline("The ground bubbles up and bursts, and %s!",
+              (seen == 1 && sensed == 0) ? "a scorpion emerges"
+                                         : "scorpions emerge");
+    }
+    else if (sensed >= 1) {
+        pline("%s near %s!",
+              (sensed == 1) ? "A scorpion emerges" : "Scorpions emerge",
+              mon_nam(scorpius));
+    }
+    if (madeany)
+        scorpius->mspec_used = 20 + rnd(20);
+    return TRUE;
 }
 
 /*monmove.c*/

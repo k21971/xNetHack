@@ -181,3 +181,114 @@ function tutorial_turn()
    end
    -- nh.pline("TUT:turn");
 end
+
+-- xnethack: generic spanning tree algorithm for special levels (specifically
+-- randomized, unweighted Kruskal's algorithm)
+-- argument 1, "edges": Table of tables describing node edges.
+--    Conventionally, edges[*][1] should be the lower of the two node numbers it
+--    connects and edges[*][2] should be the higher of the two, but this isn't
+--    actually required. The table can optionally carry more information in
+--    higher indices; this function won't look at them.
+-- argument 2, "numnodes": Number of nodes in the graph.
+-- argument 3, "startnode": Starting node id; if nil, one will be picked
+--    randomly.
+-- argument 4, "callback": Function that is responsible for doing whatever the
+--    caller wants it to do to establish the connection, such as by actually
+--    changing terrain to make the edge real on the map. It will be called with
+--    a edges[*] sub-table.
+function make_spanning_tree(edges, numnodes, startnode, callback)
+   -- Construct hash table storing which nodes have been reached already.
+   local reached = {}
+   for i = 1,numnodes do
+      reached[i] = false
+   end
+   if startnode == nil then
+      startnode = d(numnodes)
+   end
+   reached[startnode] = true
+   local num_reached = 1
+   while num_reached < numnodes do
+      -- Select random edges until we find one that would connect a new node.
+      local pick = nil
+      repeat
+         pick = d(#edges)
+      until reached[edges[pick][1]] ~= reached[edges[pick][2]]
+
+      -- Invoke callback will do to physically add the edge.
+      callback(edges[pick])
+
+      -- both rooms are now reachable (one already was)
+      reached[edges[pick][1]] = true
+      reached[edges[pick][2]] = true
+      num_reached = num_reached + 1
+   end
+end
+
+-- xnethack: remove diagonal choke points from map; currently used only in the
+-- Ranger quest and hence it is hardcoded to work only on trees.
+-- While some levels it's used on are diggable, Rangers get a penalty for
+-- chopping down trees and it wouldn't be nice to make them do that.
+-- (Need to do both directions with the 'x' characters because selection.match
+-- requires odd-sized mapfrag and doing it in only one direction could result in
+-- failure to match on the edge of the map.)
+-- The repeat block is necessary because it's possible that turning a tree into
+-- a ROOM space creates a new diagonal gap.
+function remove_tree_chokepoints()
+   local totpoints = 0
+   repeat
+      totpoints = 0
+      local cut1 = selection.match([[
+T.x
+.Tx
+xxx]])
+      cut1:iterate(function(x, y)
+         totpoints = totpoints + 1
+         if percent(50) then
+            x = x - 1
+            y = y - 1
+         end
+         des.terrain(x, y, '.')
+      end)
+
+      local cut2 = selection.match([[
+xxx
+xT.
+x.T]])
+      cut2:iterate(function(x, y)
+         totpoints = totpoints + 1
+         if percent(50) then
+            x = x + 1
+            y = y + 1
+         end
+         des.terrain(x, y, '.')
+      end)
+
+      local cut3 = selection.match([[
+.Tx
+T.x
+xxx]])
+      cut3:iterate(function(x, y)
+         totpoints = totpoints + 1
+         if percent(50) then
+            x = x - 1
+         else
+            y = y - 1
+         end
+         des.terrain(x, y, '.')
+      end)
+
+      local cut4 = selection.match([[
+xxx
+x.T
+xT.]])
+      cut4:iterate(function(x, y)
+         totpoints = totpoints + 1
+         if percent(50) then
+            x = x + 1
+         else
+            y = y + 1
+         end
+         des.terrain(x, y, '.')
+      end)
+   until totpoints == 0
+end

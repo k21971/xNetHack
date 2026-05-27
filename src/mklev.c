@@ -1,4 +1,4 @@
-/* NetHack 3.7	mklev.c	$NHDT-Date: 1737387068 2025/01/20 07:31:08 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.194 $ */
+/* NetHack 5.0	mklev.c	$NHDT-Date: 1737387068 2025/01/20 07:31:08 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.194 $ */
 /* Copyright (c) Stichting Mathematisch Centrum, Amsterdam, 1985. */
 /*-Copyright (c) Alex Smith, 2017. */
 /* NetHack may be freely redistributed.  See license for details. */
@@ -9,7 +9,6 @@
 /* croom->lx etc are schar (width <= int), so % arith ensures that */
 /* conversion of result to int is reasonable */
 
-staticfn int mkmonst_in_room(struct mkroom *);
 staticfn boolean generate_stairs_room_good(struct mkroom *, int);
 staticfn struct mkroom *generate_stairs_find_room(void);
 staticfn void generate_stairs(void);
@@ -333,6 +332,10 @@ add_room(coordxy lowx, coordxy lowy, coordxy hix, coordxy hiy,
 {
     struct mkroom *croom;
 
+#ifdef DEBUG
+    if (svn.nroom >= MAXNROFROOMS)
+        panic("level has too many rooms");
+#endif /*DEBUG*/
     croom = &svr.rooms[svn.nroom];
     do_room_or_subroom(croom, lowx, lowy, hix, hiy, lit, rtype, special,
                        (boolean) TRUE);
@@ -353,6 +356,12 @@ add_subroom(struct mkroom *proom,
 {
     struct mkroom *croom;
 
+#ifdef DEBUG
+    if (gn.nsubroom >= MAXNROFROOMS)
+        panic("level has too many subrooms");
+    if (proom->nsubrooms >= MAX_SUBROOMS)
+        panic("room has too many subrooms");
+#endif /*DEBUG*/
     croom = &gs.subrooms[gn.nsubroom];
     do_room_or_subroom(croom, lowx, lowy, hix, hiy, lit, rtype, special,
                        (boolean) FALSE);
@@ -470,8 +479,7 @@ makerooms(void)
 /* Join rooms a and b together by drawing a corridor and placing doors.
  * If nxcor is TRUE, it will be pickier about whether to draw the corridor at
  * all, and will not create doors in !okdoor() locations.
- * The corridor will be made of CORR terrain unless this is an arboreal level
- * in which case it will use ROOM.
+ * The corridor will be made of CORR terrain.
  * Afterwards, the smeq values of a and b will be set equal to each other.
  * Should this return boolean (success or failure)? */
 staticfn void
@@ -554,8 +562,7 @@ join(int a, int b, boolean nxcor)
     dest.x = tx;
     dest.y = ty;
 
-    dig_result = dig_corridor(&org, &dest, &npoints, nxcor,
-                              svl.level.flags.arboreal ? ROOM : CORR, STONE);
+    dig_result = dig_corridor(&org, &dest, &npoints, nxcor, CORR, STONE);
 
     /* we created at least 1 tile of corridor, even if it failed */
     if ((npoints > 0) && (okdoor(xx, yy) || !nxcor))
@@ -1179,6 +1186,7 @@ clear_level_structures(void)
     svl.level.flags.noautosearch = 0;
     svl.level.flags.fumaroles = 0;
     svl.level.flags.stormy = 0;
+    svl.level.flags.stasis_until = 0L;
     svl.level.flags.outdoors = 0;
     svl.level.flags.visited_after_event = 0;
 
@@ -1266,15 +1274,20 @@ fill_ordinary_room(
 
     /* put traps and mimics inside */
     x = 8 - (level_difficulty() / 6);
-    if (x < 2)
+    if (x <= 1)
         /* maxes out at level_difficulty() == 36 */
         x = 2;
     while (!rn2(x) && (++trycnt < 1000))
         mktrap(0, MKTRAP_NOFLAGS, croom, (coord *) 0);
 
     /* maybe put a monster inside */
-    if (u.uhave.amulet || !rn2(2)) {
-        mkmonst_in_room(croom);
+    if ((u.uhave.amulet || !rn2(3)) && somexyspace(croom, &pos)) {
+        struct monst *tmonst = makemon((struct permonst *) 0,
+                                       pos.x, pos.y, MM_NOGRP);
+        /* always put a web with a spider */
+        if (tmonst && tmonst->data == &mons[PM_GIANT_SPIDER]
+            && !occupied(pos.x, pos.y))
+            (void) maketrap(pos.x, pos.y, WEB);
     }
 
     /* maybe put some gold inside */
@@ -1755,7 +1768,6 @@ mineralize(int kelp_pool, int kelp_moat, int goldprob, int gemprob,
        almost all special levels are excluded */
     if (!skip_lvl_checks
         && (In_hell(&u.uz) || In_V_tower(&u.uz)
-            || svl.level.flags.arboreal
             || ((sp = Is_special(&u.uz)) != 0 && !Is_oracle_level(&u.uz)
                 && (!In_mines(&u.uz) || sp->flags.town))))
         return;
@@ -2567,28 +2579,6 @@ generate_stairs(void)
         }
         mkstairs(pos.x, pos.y, 1, croom, FALSE); /* up */
     }
-}
-
-/* Return number of monsters created. */
-staticfn int
-mkmonst_in_room(struct mkroom *croom)
-{
-    int num_monst = 1;
-    struct monst *tmonst; /* always put a web with a spider */
-    coord pos;
-    if (!somexyspace(croom, &pos)) {
-        return 0; /* can't place any monsters */
-    }
-    tmonst = makemon((struct permonst *) 0, pos.x, pos.y, MM_NOGRP);
-    if (tmonst && tmonst->data == &mons[PM_GIANT_SPIDER]
-        && !occupied(pos.x, pos.y)) {
-        (void) maketrap(pos.x, pos.y, WEB);
-    }
-    /* maybe place another monster in the same room */
-    if(!rn2(3)) {
-        num_monst += mkmonst_in_room(croom);
-    }
-    return num_monst;
 }
 
 void

@@ -1,4 +1,4 @@
-/* NetHack 3.7	monsters.h	$NHDT-Date: 1723945838 2024/08/18 01:50:38 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.124 $ */
+/* NetHack 5.0	monsters.h	$NHDT-Date: 1723945838 2024/08/18 01:50:38 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.124 $ */
 /* Copyright (c) Stichting Mathematisch Centrum, Amsterdam, 1985. */
 /*-Copyright (c) Michael Allison, 2006. */
 /* NetHack may be freely redistributed.  See license for details. */
@@ -963,9 +963,18 @@
             | M1_CARNIVORE,
         M2_HOSTILE, 0,
         8, CLR_RED, SCORPION),
+    MON(NAM("giant scorpion"), S_SPIDER,
+        LVL(12, 18, 3, 0, 0), (G_GENO | 1),
+        A(ATTK(AT_CLAW, AD_PHYS, 5, 2),
+          ATTK(AT_STNG, AD_DRST, 3, 4),
+          ATTK(AT_HUGS, AD_PHYS, 3, 2), NO_ATTK, NO_ATTK, NO_ATTK),
+        SIZ(500, 150, MS_SILENT, MZ_LARGE), MR_POISON, MR_POISON,
+        M1_ANIMAL | M1_NOHANDS | M1_OVIPAROUS | M1_POIS | M1_CARNIVORE,
+        M2_HOSTILE, 0,
+        15, CLR_ORANGE, GIANT_SCORPION),
     /*
      * trappers, lurkers, &c
-     * Note:  prior to 3.7, these were defined to do AD_DGST damage,
+     * Note:  prior to 5.0, these were defined to do AD_DGST damage,
      * but they don't swallow their victims into their stomachs and
      * digest, they enfold and crush or suffocate.
      * The Monster Manual states that someone engulfed by a trapper
@@ -2050,7 +2059,7 @@
             | M1_OMNIVORE,
         M2_STRONG, 0,
         13, HI_GOLD, GOLDEN_NAGA),
-    /* 3.7: guardian naga used to have three attacks: bite, spit, hug
+    /* 5.0: guardian naga used to have three attacks: bite, spit, hug
        but in order for the hug to succeed the two preceding attacks had
        to have hit, and it's not possible to both bite and spit, hence
        the hug never hit; change to spit, bite, touch, hug; if the bite
@@ -2348,7 +2357,7 @@
         M2_HOSTILE | M2_NASTY | M2_GREEDY | M2_JEWELS | M2_COLLECT,
         M3_INFRAVISIBLE | M3_INFRAVISION,
         13, CLR_MAGENTA, MIND_FLAYER),
-    /* 3.7: from slash'em, to expand Q class; hit polymorphs target */
+    /* 5.0: from slash'em, to expand Q class; hit polymorphs target */
     MON(NAM("genetic engineer"), S_ABERRATION,
         LVL(12, 12, 3, 10, 0), (G_GENO | 1),
         A(ATTK(AT_CLAW, AD_POLY, 1, 4),
@@ -2759,7 +2768,7 @@
             | M2_SHAPESHIFTER,
         M3_INFRAVISIBLE,
         11, HI_DOMESTIC, DOPPELGANGER),
-    /* 3.7: shopkeepers used to have speed 18, but if/when they were
+    /* 5.0: shopkeepers used to have speed 18, but if/when they were
        hasted they always got 2 moves per turn and had a tendency to move
        away from blocking the door and then move right back; since they
        might start with a potion of speed and drink that as soon as the
@@ -2966,7 +2975,7 @@
 #define SEDUCTION_ATTACKS_NO \
     A(ATTK(AT_CLAW, AD_PHYS, 1, 3), ATTK(AT_CLAW, AD_PHYS, 1, 3), \
       ATTK(AT_BITE, AD_DRLI, 2, 6), NO_ATTK, NO_ATTK, NO_ATTK)
-    /* incubus and succubus; prior to 3.7, succubus and incubus were
+    /* incubus and succubus; prior to 5.0, succubus and incubus were
        distinct monsters; "amorous demon" is considered to be a temporary
        placeholder but may be here to stay... */
     MON(NAMS("incubus", "succubus", "amorous demon"), S_DEMON,
@@ -3242,7 +3251,7 @@
     /*
      * sea monsters
      *
-     * 3.7: all the fish except kraken used to specify M1_SLITHY, presumably
+     * 5.0: all the fish except kraken used to specify M1_SLITHY, presumably
      * cloned from giant eel.  Using "slither" to describe their movement
      * wasn't appropriate.  Unfortunately, locomotion() isn't able to choose
      * "swim" as their movement description because it is only passed a
@@ -3444,8 +3453,8 @@
     /* monster priests are separate monsters (above; "aligned cleric") */
     MON(NAMS("priest", "priestess", "cleric"), S_HUMAN,
         LVL(10, 12, 10, 2, 0), G_NOGEN,
-        A(ATTK(AT_WEAP, AD_PHYS, 1, 6),
-          NO_ATTK, NO_ATTK, NO_ATTK, NO_ATTK, NO_ATTK),
+        A(ATTK(AT_WEAP, AD_PHYS, 1, 6), ATTK(AT_MAGC, AD_CLRC, 0, 0),
+          NO_ATTK, NO_ATTK, NO_ATTK, NO_ATTK),
         SIZ(WT_HUMAN, 400, MS_HUMANOID, MZ_HUMAN), 0, 0,
         M1_HUMANOID | M1_OMNIVORE,
         M2_NOPOLY | M2_HUMAN | M2_STRONG | M2_COLLECT,
@@ -3500,8 +3509,8 @@
         12, HI_DOMESTIC, VALKYRIE),
     MON(NAM("wizard"), S_HUMAN,
         LVL(10, 12, 10, 3, 0), G_NOGEN,
-        A(ATTK(AT_WEAP, AD_PHYS, 1, 6),
-          NO_ATTK, NO_ATTK, NO_ATTK, NO_ATTK, NO_ATTK),
+        A(ATTK(AT_WEAP, AD_PHYS, 1, 6), ATTK(AT_MAGC, AD_SPEL, 0, 0),
+          NO_ATTK, NO_ATTK, NO_ATTK, NO_ATTK),
         SIZ(WT_HUMAN, 400, MS_HUMANOID, MZ_HUMAN), 0, 0,
         M1_HUMANOID | M1_OMNIVORE,
         M2_NOPOLY | M2_HUMAN | M2_STRONG | M2_COLLECT | M2_MAGIC,
@@ -3601,15 +3610,15 @@
         M2_NOPOLY | M2_HUMAN | M2_PEACEFUL | M2_STRONG | M2_MALE | M2_COLLECT
             | M2_MAGIC, M3_CLOSE | M3_INFRAVISIBLE,
         30, CLR_WHITE, ARCH_PRIEST),
-    MON(NAM("Orion"), S_HUMAN, LVL(20, 15, 0, 90, 0), (G_NOGEN | G_UNIQ),
+    MON(NAM("Cedalion"), S_HUMAN, LVL(20, 15, 0, 90, 0), (G_NOGEN | G_UNIQ),
         A(ATTK(AT_WEAP, AD_PHYS, 4, 10), ATTK(AT_MAGC, AD_SPEL, 4, 8),
           NO_ATTK, NO_ATTK, NO_ATTK, NO_ATTK),
-        SIZ(2200, 700, MS_LEADER, MZ_HUGE), 0, 0,
+        SIZ(2200, 700, MS_LEADER, MZ_HUMAN), 0, 0,
         M1_HUMANOID | M1_OMNIVORE | M1_SEE_INVIS | M1_SWIM | M1_AMPHIBIOUS,
         M2_NOPOLY | M2_HUMAN | M2_PNAME | M2_PEACEFUL | M2_STRONG | M2_MALE
             | M2_COLLECT | M2_MAGIC,
         M3_CLOSE | M3_INFRAVISION | M3_INFRAVISIBLE,
-        24, HI_LORD, ORION),
+        24, HI_LORD, CEDALION),
     /* Note: Master of Thieves is also the Tourist's nemesis.
      */
     MON(NAM("Master of Thieves"), S_HUMAN,
@@ -3760,10 +3769,10 @@
         M3_WANTSARTI | M3_WAITFORU | M3_INFRAVISION | M3_INFRAVISIBLE,
         23, CLR_ORANGE, NALZOK),
     MON(NAM("Scorpius"), S_SPIDER,
-        LVL(15, 12, 10, 0, -15), (G_NOGEN | G_UNIQ),
-        A(ATTK(AT_CLAW, AD_PHYS, 2, 6), ATTK(AT_CLAW, AD_SAMU, 2, 6),
-          ATTK(AT_STNG, AD_DISE, 1, 4), NO_ATTK, NO_ATTK, NO_ATTK),
-        SIZ(750, 350, MS_NEMESIS, MZ_HUMAN), MR_POISON | MR_STONE, MR_POISON,
+        LVL(20, 18, 0, 50, -15), (G_NOGEN | G_UNIQ),
+        A(ATTK(AT_CLAW, AD_SAMU, 2, 6), ATTK(AT_STNG, AD_DISE, 1, 4),
+          ATTK(AT_HUGS, AD_PHYS, 2, 6), NO_ATTK, NO_ATTK, NO_ATTK),
+        SIZ(1800, 350, MS_NEMESIS, MZ_HUGE), MR_POISON | MR_STONE, MR_POISON,
         M1_ANIMAL | M1_NOHANDS | M1_OVIPAROUS | M1_POIS | M1_CARNIVORE,
         M2_NOPOLY | M2_MALE | M2_PNAME | M2_HOSTILE | M2_STRONG | M2_STALK
             | M2_NASTY | M2_COLLECT | M2_MAGIC,

@@ -1,4 +1,4 @@
-/* NetHack 3.7	invent.c	$NHDT-Date: 1762680996 2025/11/09 01:36:36 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.543 $ */
+/* NetHack 5.0	invent.c	$NHDT-Date: 1762680996 2025/11/09 01:36:36 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.543 $ */
 /* Copyright (c) Stichting Mathematisch Centrum, Amsterdam, 1985. */
 /*-Copyright (c) Derek S. Ray, 2015. */
 /* NetHack may be freely redistributed.  See license for details. */
@@ -159,7 +159,7 @@ loot_classify(Loot *sort_item, struct obj *obj)
     };
     static char armcat[8];
     const char *classorder;
-    char *p;
+    const char *p;
     int k, otyp = obj->otyp, oclass = obj->oclass;
     boolean seen, discovered = objects[otyp].oc_name_known ? TRUE : FALSE;
 
@@ -1557,7 +1557,7 @@ static const char *const currencies[] = {
     "credit chit",           /* Deus Ex */
     "cubit",                 /* Battlestar Galactica */
     "cursed doubloon",       /* real life */
-    "Flanian Pobble Bead",   /* The Hitchhiker's Guide to the Galaxy */
+    "Flainian Pobble Bead",  /* The Hitchhiker's Guide to the Galaxy */
     "fretzer",               /* Jules Verne */
     "imperial credit",       /* Star Wars */
     "Hong Kong Luna Dollar", /* The Moon is a Harsh Mistress */
@@ -2581,7 +2581,6 @@ askchain(
     return cnt;
 }
 
-
 /* The menu for rerolling attributes and inventory.
 
    This is similar to the other inventory menus, but simpler to help it fit on
@@ -2598,7 +2597,7 @@ reroll_menu(void)
     struct obj *otmp;
     int tmpglyph;
     glyph_info tmpglyphinfo;
-    char option;
+    char option = 'n';
     char buf[BUFSZ];
 
     win = create_nhwindow(NHW_MENU);
@@ -2610,9 +2609,9 @@ reroll_menu(void)
              ATR_NONE, NO_COLOR, "start the game with this character",
              MENU_ITEMFLAGS_NONE);
     any.a_char = 'y';
+    Strcpy(buf, "reroll another character");
     add_menu(win, &nul_glyphinfo, &any, flags.lootabc ? 0 : 'r', 0,
-             ATR_NONE, NO_COLOR, "reroll another character",
-             MENU_ITEMFLAGS_NONE);
+             ATR_NONE, NO_COLOR, buf, MENU_ITEMFLAGS_NONE);
     any.a_char = 0;
     add_menu(win, &nul_glyphinfo, &any, 0, 0, ATR_NONE, NO_COLOR, "",
              MENU_ITEMFLAGS_NONE);
@@ -2649,11 +2648,7 @@ reroll_menu(void)
     }
     destroy_nhwindow(win);
 
-    if (option == 'y') {
-        ++u.uroleplay.numrerolls;
-        return TRUE;
-    }
-    return FALSE;
+    return option == 'y';
 }
 
 /*
@@ -4179,7 +4174,8 @@ look_here(
     boolean skip_objects, felt_cockatrice = FALSE,
             picked_some = (lookhere_flags & LOOKHERE_PICKED_SOME) != 0,
             /* skip 'dfeature' if caller used describe_decor() to show it */
-            skip_dfeature = (lookhere_flags & LOOKHERE_SKIP_DFEATURE) != 0;
+            skip_dfeature = (lookhere_flags & LOOKHERE_SKIP_DFEATURE) != 0,
+            fromcmd = (lookhere_flags & LOOKHERE_FROMCMD) != 0;
 
     /* default pile_limit is 5; a value of 0 means "never skip"
        (and 1 effectively forces "always skip") */
@@ -4348,6 +4344,9 @@ look_here(
         iflags.last_msg = PLNMSG_ONE_ITEM_HERE;
         if (otmp->otyp == CORPSE)
             feel_cockatrice(otmp, FALSE);
+        if (!Blind && Is_box(otmp) && (fromcmd || !otmp->cknown)
+            && otmp->material == GLASS)
+            container_contents(otmp, FALSE, FALSE, TRUE);
     } else {
         char buf[BUFSZ];
 
@@ -4389,7 +4388,7 @@ dolook(void)
        MSGTYPE={norep,noshow} "You see here"
        interfere with feedback from the look-here command */
     hide_unhide_msgtypes(TRUE, MSGTYP_MASK_REP_SHOW);
-    res = look_here(0, LOOKHERE_NOFLAGS);
+    res = look_here(0, LOOKHERE_FROMCMD);
     /* restore normal msgtype handling */
     hide_unhide_msgtypes(FALSE, MSGTYP_MASK_REP_SHOW);
     return res;

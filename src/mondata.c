@@ -1,4 +1,4 @@
-/* NetHack 3.7	mondata.c	$NHDT-Date: 1738638877 2025/02/03 19:14:37 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.140 $ */
+/* NetHack 5.0	mondata.c	$NHDT-Date: 1738638877 2025/02/03 19:14:37 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.140 $ */
 /* Copyright (c) Stichting Mathematisch Centrum, Amsterdam, 1985. */
 /*-Copyright (c) Robert Patrick Rankin, 2011. */
 /* NetHack may be freely redistributed.  See license for details. */
@@ -1348,6 +1348,7 @@ static const short grownups[][2] = {
     { PM_URUK_HAI, PM_ORC_CAPTAIN },
     { PM_SEWER_RAT, PM_GIANT_RAT },
     { PM_CAVE_SPIDER, PM_GIANT_SPIDER },
+    { PM_SCORPION, PM_GIANT_SCORPION },
     { PM_OGRE, PM_OGRE_LEADER },
     { PM_OGRE_LEADER, PM_OGRE_TYRANT },
     { PM_ELF, PM_ELF_NOBLE },

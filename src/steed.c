@@ -1,4 +1,4 @@
-/* NetHack 3.7	steed.c	$NHDT-Date: 1720128167 2024/07/04 21:22:47 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.121 $ */
+/* NetHack 5.0	steed.c	$NHDT-Date: 1720128167 2024/07/04 21:22:47 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.121 $ */
 /* Copyright (c) Kevin Hugo, 1998-1999. */
 /* NetHack may be freely redistributed.  See license for details. */
 
@@ -7,6 +7,7 @@
 /* Monsters that might be ridden */
 static NEARDATA const char steeds[] = { S_QUADRUPED, S_UNICORN, S_ANGEL,
                                         S_CENTAUR,   S_DRAGON,  S_JABBERWOCK,
+                                        S_SPIDER,
                                         '\0' };
 
 staticfn boolean landing_spot(coord *, int, int);
@@ -21,15 +22,22 @@ rider_cant_reach(void)
 
 /*** Putting the saddle on ***/
 
-/* Can this monster wear a saddle? */
+/* Can a monster of this species wear a saddle? */
+boolean
+saddleable(struct permonst *ptr)
+{
+    return (strchr(steeds, ptr->mlet) && (ptr->msize >= MZ_MEDIUM)
+            && (!humanoid(ptr) || ptr->mlet == S_CENTAUR) && !amorphous(ptr)
+            && !noncorporeal(ptr) && !is_whirly(ptr) && !unsolid(ptr));
+}
+
+/* Can this monster wear a saddle?
+ * (I'm not sure why this takes a struct monst and not a struct permonst.) */
 boolean
 can_saddle(struct monst *mtmp)
 {
     struct permonst *ptr = mtmp->data;
-
-    return (strchr(steeds, ptr->mlet) && (ptr->msize >= MZ_MEDIUM)
-            && (!humanoid(ptr) || ptr->mlet == S_CENTAUR) && !amorphous(ptr)
-            && !noncorporeal(ptr) && !is_whirly(ptr) && !unsolid(ptr));
+    return saddleable(ptr);
 }
 
 int
@@ -472,7 +480,7 @@ landing_spot(
 
     (void) memset((genericptr_t) try, 0, sizeof try);
     n = 0;
-    j = xytod(u.dx, u.dy);
+    j = xytodir(u.dx, u.dy);
     if (reason == DISMOUNT_KNOCKED && j != DIR_ERR) {
         /* we'll check preferred location first; if viable it'll be picked */
         best_j = j;
@@ -480,10 +488,10 @@ landing_spot(
         /* the two next best locations are checked second and third */
         i = rn2(2);
         clockwise_j = DIR_RIGHT(j); /* (j + 1) % 8 */
-        dtoxy(&cc, clockwise_j);
+        dirtocoord(&cc, clockwise_j);
         try[1 + i].x = cc.x, try[1 + i].y = cc.y; /* [1] or [2] */
         counterclk_j = DIR_LEFT(j); /* (j + 8 - 1) % 8 */
-        dtoxy(&cc, counterclk_j);
+        dirtocoord(&cc, counterclk_j);
         try[2 - i].x = cc.x, try[2 - i].y = cc.y; /* [2] or [1] */
         n = 3;
         debugpline3("knock from saddle: best %s, next %s or %s",
@@ -501,7 +509,7 @@ landing_spot(
            so odd j values are diagonal directions here */
         if (reason == DISMOUNT_POLY && NODIAG(u.umonnum) && (j % 1) != 0)
             continue;
-        dtoxy(&cc, j);
+        dirtocoord(&cc, j);
         try[n++] = cc;
     }
 

@@ -1,4 +1,4 @@
-/* NetHack 3.7	objnam.c	$NHDT-Date: 1745114235 2025/04/19 17:57:15 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.453 $ */
+/* NetHack 5.0	objnam.c	$NHDT-Date: 1745114235 2025/04/19 17:57:15 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.453 $ */
 /* Copyright (c) Stichting Mathematisch Centrum, Amsterdam, 1985. */
 /*-Copyright (c) Robert Patrick Rankin, 2011. */
 /* NetHack may be freely redistributed.  See license for details. */
@@ -710,8 +710,12 @@ xname_flags(
 
         if ((obj->material != objects[typ].oc_material
              || force_material_name(typ)) && dknown) {
-            Strcat(buf, materialnm[obj->material]);
-            Strcat(buf, " ");
+            if (Is_box(obj) && obj->material == GLASS)
+                Strcat(buf, "crystal ");
+            else {
+                Strcat(buf, materialnm[obj->material]);
+                Strcat(buf, " ");
+            }
         }
 
         if (!dknown)
@@ -809,7 +813,7 @@ xname_flags(
                doname() so we've added an external flag to request it */
             Concat(buf, 0, "partly eaten ");
         }
-        if (obj->globby) { /* 3.7 added "medium" to replace no-prefix */
+        if (obj->globby) { /* 5.0 added "medium" to replace no-prefix */
             ConcatF2(buf, 0, "%s %s", (obj->owt <= 100) ? "small"
                                       : (obj->owt <= 300) ? "medium"
                                         : (obj->owt <= 500) ? "large"
@@ -1407,6 +1411,11 @@ doname_base(
             Strcat(prefix, "broken ");
         else if (obj->olocked)
             Strcat(prefix, "locked ");
+        else if (obj->material == MINERAL)
+            /* stone boxes have no lock to speak of, so avoid describing as
+             * "unlocked", but if we somehow end up with a locked or broken one,
+             * describe it as such */
+            ;
         else
             Strcat(prefix, "unlocked ");
     }
@@ -1729,6 +1738,8 @@ doname_base(
         Sprintf(pricebuf, "%ld %s", quotedprice, currency(quotedprice));
         ConcatF2(bp, 0, " (%s, %s)",
                  obj->unpaid ? "unpaid" : "contents", pricebuf);
+
+        record_price_quote(obj->otyp, quotedprice / obj->quan, TRUE);
     } else if (with_price) { /* on floor or in container on floor */
         int nochrg = 0;
         long price = get_cost_of_shop_item(obj, &nochrg);
@@ -1741,7 +1752,14 @@ doname_base(
                      nochrg ? "contents" : "for sale", pricebuf);
         } else if (nochrg > 0) {
             Concat(bp, 0, " (no charge)");
+        } else if (iflags.pricequotes && !objects[obj->otyp].oc_name_known) {
+            append_price_quote(bp, &bp_eos, obj->otyp);
         }
+
+        if (price > 0L)
+            record_price_quote(obj->otyp, price / obj->quan, TRUE);
+    } else if (iflags.pricequotes && !objects[obj->otyp].oc_name_known) {
+        append_price_quote(bp, &bp_eos, obj->otyp);
     }
 
     if (!strncmp(prefix, "a ", 2)) {
@@ -2270,7 +2288,8 @@ the(const char *str)
         insert_the = TRUE;
     } else {
         /* Probably a proper name, might not need an article */
-        char *tmp, *named, *called;
+        char *named, *called;
+        const char *tmp;
         int l;
 
         /* some objects have capitalized adjectives in their names */
@@ -4115,10 +4134,9 @@ object_not_monster(const char *str)
  * happens to start with a material name and is not actually specifying a
  * material. */
 static boolean
-not_actually_specifying_material(const char * const str, int material)
+not_actually_specifying_material(const char * const str, const char *matstr)
 {
     int i;
-    const char *matstr = materialnm[material];
     int matlen = strlen(matstr);
     /* is this the entire string? e.g. "gold" is actually a wish for zorkmids
      * The effect of this is that you can't just wish for a material and get a
@@ -4175,6 +4193,11 @@ not_actually_specifying_material(const char * const str, int material)
     /* does it match some terrain or a trap? e.g. "iron bars" */
     for (i = 0; i < MAXPCHARS; ++i) {
         const char *terr_name = defsyms[i].explanation;
+        if (i == S_stone) {
+            /* "stone" is a valid material specifier and you can't actually wish
+             * for stone (solid rock) terrain, so skip this one */
+            continue;
+        }
         if (terr_name && *terr_name
             && !strncmpi(str, terr_name, strlen(terr_name))) {
             return TRUE;
@@ -4384,9 +4407,9 @@ readobjnam_preparse(struct _readobjnam_data *d)
                 break;
             d->gsize = 1;
         } else if (!strncmpi(d->bp, "medium ", l = 7)) {
-            /* 3.7: in 3.6, "medium" was only used during wishing and the
+            /* 5.0: in 3.6, "medium" was only used during wishing and the
                mid-size glob had no adjective when formatted, but as of
-               3.7, "medium" has become an explicit part of the name for
+               5.0, "medium" has become an explicit part of the name for
                combined globs of at least 5 individual ones (owt >= 100)
                and less than 15 (owt < 300) */
             d->gsize = 2;
@@ -4444,6 +4467,12 @@ readobjnam_preparse(struct _readobjnam_data *d)
                 || !strncmpi(d->bp + l, "an ", more_l = 3)
                 || !strncmpi(d->bp + l, "the ", more_l = 4))
                 l += more_l;
+
+        /* Special case for crystal containers, which are actually just glass,
+         * but won't be handled in the main material loop below */
+        } else if (!strncmpi(d->bp, "crystal ", l = 8)
+                   && !not_actually_specifying_material(d->bp, "crystal")) {
+            d->material = GLASS;
         } else {
             int i;
             /* doesn't currently catch "wood" for wooden */
@@ -4454,7 +4483,7 @@ readobjnam_preparse(struct _readobjnam_data *d)
                      * but need to ensure that it's not just a wish for
                      * something else that happens to have a prefix of a
                      * material */
-                    && !not_actually_specifying_material(d->bp, i))
+                    && !not_actually_specifying_material(d->bp, materialnm[i]))
                 {
                     d->material = i;
                     l++;
@@ -5419,6 +5448,23 @@ readobjnam(char *bp, struct obj *no_wish)
                         /* WEAPON_CLASS test excludes gems, gray stones */
                         || (d.oclass == WEAPON_CLASS && is_ammo(d.otmp))))))
             d.otmp->quan = (long) d.cnt;
+
+        /* post-fixup for arrows of light, which you can only get 1 of per wish
+         * in normal play (rather than 20) */
+        if (d.typ == ARROW_OF_LIGHT && !wizard)
+            d.otmp->quan = 1L;
+    }
+
+    /* also don't allow wishing to exceed the limit on extant arrows of light */
+    if (d.typ == ARROW_OF_LIGHT) {
+        if (!wizard && sve.extant_arrows_of_light >= MAX_LIGHT_ARROWS) {
+            pline("The wish fails!");
+            obfree(d.otmp, (struct obj *) 0);
+            d.otmp = &hands_obj;
+            return d.otmp;
+        }
+        else
+            sve.extant_arrows_of_light += d.otmp->quan;
     }
 
     if (d.islit && (d.typ == OIL_LAMP || d.typ == MAGIC_LAMP
@@ -5639,9 +5685,14 @@ readobjnam(char *bp, struct obj *no_wish)
             d.otmp->owt = weight(d.otmp);
         }
     }
-    /* set locked/unlocked/broken */
+    /* set locked/unlocked/broken, except on stone boxes which have no lock and
+     * crystal boxes which cannot be broken */
     if (Is_box(d.otmp)) {
-        if (d.locked) {
+        if (d.material == MINERAL) {
+            d.otmp->olocked = 0, d.otmp->obroken = 0;
+        } else if (d.material == GLASS) {
+            d.otmp->olocked = 1, d.otmp->obroken = 0;
+        } else if (d.locked) {
             d.otmp->olocked = 1, d.otmp->obroken = 0;
         } else if (d.unlocked) {
             d.otmp->olocked = 0, d.otmp->obroken = 0;

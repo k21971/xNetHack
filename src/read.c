@@ -1,4 +1,4 @@
-/* NetHack 3.7	read.c	$NHDT-Date: 1762577372 2025/11/07 20:49:32 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.323 $ */
+/* NetHack 5.0	read.c	$NHDT-Date: 1762577372 2025/11/07 20:49:32 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.323 $ */
 /* Copyright (c) Stichting Mathematisch Centrum, Amsterdam, 1985. */
 /*-Copyright (c) Robert Patrick Rankin, 2012. */
 /* NetHack may be freely redistributed.  See license for details. */
@@ -24,6 +24,7 @@ staticfn int maybe_tame(struct monst *, struct obj *);
 staticfn boolean can_center_cloud(coordxy, coordxy);
 staticfn void display_stinking_cloud_positions(boolean);
 staticfn void seffect_enchant_armor(struct obj **);
+staticfn boolean disintegrate_cursed_armor(void);
 staticfn void seffect_destroy_armor(struct obj **);
 staticfn void seffect_confuse_monster(struct obj **);
 staticfn void seffect_scare_monster(struct obj **);
@@ -819,6 +820,10 @@ recharge(struct obj *obj, int curse_bless)
     is_cursed = curse_bless < 0;
     is_blessed = curse_bless > 0;
 
+    /* Identify the charge count, unless using a cursed charging method. */
+    if (!is_cursed)
+        obj->known = 1;
+
     if (obj->oclass == WAND_CLASS) {
         int lim = (objects[obj->otyp].oc_dir != NODIR) ? 8 : 15;
 
@@ -1374,7 +1379,8 @@ seffect_enchant_armor(struct obj **sobjp)
         useup(otmp);
         return;
     }
-    if (s < -100) s = -100; /* avoid integer overflow with very negative armor */
+    if (s < -100)
+        s = -100; /* avoid integer overflow with very negative armor */
 
     /* Base power of the enchantment:
 
@@ -1387,19 +1393,25 @@ seffect_enchant_armor(struct obj **sobjp)
 
     /* Elven/artifact and nonmagical armor is easier to enchant;
        blessed scrolls are more effective. */
-    if (special_armor) ++s;
-    if (!objects[otmp->otyp].oc_magic) ++s;
-    if (sblessed) ++s;
+    if (special_armor)
+        ++s;
+    if (!objects[otmp->otyp].oc_magic)
+        ++s;
+    if (sblessed)
+        ++s;
 
     if (s <= 0) {
         s = 0;
-        if (otmp->spe > 0 && !rn2(otmp->spe)) s = 1;
+        if (otmp->spe > 0 && !rn2(otmp->spe))
+            s = 1;
     } else {
         s = rnd(s);
     }
-    if (s > 11) s = 11;    /* unlikely but possible: avoids an overflow later */
+    if (s > 11)
+        s = 11;    /* unlikely but possible: avoids an overflow later */
 
-    if (scursed) s = -s;
+    if (scursed)
+        s = -s;
 
     pline("%s %s%s%s%s for a %s.", Yname2(otmp),
           (s == 0) ? "violently " : "",
@@ -1440,6 +1452,37 @@ seffect_enchant_armor(struct obj **sobjp)
               Blind ? "again" : "unexpectedly");
 }
 
+/* destroy a random cursed armor worn by hero */
+staticfn boolean
+disintegrate_cursed_armor(void)
+{
+    struct obj *armors[10];
+    int idx = 0;
+
+    armors[0] = NULL;
+    if (uarm && uarm->cursed)
+        armors[idx++] = uarm;
+    if (uarmc && uarmc->cursed)
+        armors[idx++] = uarmc;
+    if (uarmh && uarmh->cursed)
+        armors[idx++] = uarmh;
+    if (uarms && uarms->cursed)
+        armors[idx++] = uarms;
+    if (uarmg && uarmg->cursed)
+        armors[idx++] = uarmg;
+    if (uarmf && uarmf->cursed)
+        armors[idx++] = uarmf;
+    if (uarmu && uarmu->cursed)
+        armors[idx++] = uarmu;
+    if (!idx)
+        return FALSE;
+
+    if (disintegrate_arm(armors[rn2(idx)]))
+        return TRUE;
+
+    return FALSE;
+}
+
 staticfn void
 seffect_destroy_armor(struct obj **sobjp)
 {
@@ -1469,7 +1512,21 @@ seffect_destroy_armor(struct obj **sobjp)
         otmp->oerodeproof = new_erodeproof ? 1 : 0;
         return;
     }
-    if (!scursed || !otmp || !otmp->cursed) {
+
+    if (scursed) {
+        if (otmp && otmp->cursed) {
+            /* armor and scroll both cursed */
+            pline("%s.", Yobjnam2(otmp, "vibrate"));
+            if (otmp->spe >= -6) {
+                otmp->spe += -1;
+                adj_abon(otmp, -1);
+            }
+            make_stunned((HStun & TIMEOUT) + (long) rn1(10, 10), TRUE);
+        } else if (disintegrate_arm(otmp)) {
+            gk.known = TRUE;
+            return;
+        }
+    } else {
         boolean gets_choice = (otmp && sobj && sobj->blessed
                                && count_worn_armor() > 1);
 
@@ -1483,9 +1540,14 @@ seffect_destroy_armor(struct obj **sobjp)
             /* check the return value, if user picked non-valid obj */
             if (any_worn_armor_ok(atmp) == GETOBJ_SUGGEST)
                 otmp = atmp;
-        }
-
-        if (!destroy_arm(otmp)) {
+            if (disintegrate_arm(otmp)) {
+                gk.known = TRUE;
+                return;
+            }
+        } else if (sobj->blessed && disintegrate_cursed_armor()) {
+            gk.known = TRUE;
+            return;
+        } else if (!destroy_arm()) {
             strange_feeling(sobj, "Your skin itches.");
             *sobjp = 0; /* useup() in strange_feeling() */
             exercise(A_STR, FALSE);
@@ -1493,13 +1555,6 @@ seffect_destroy_armor(struct obj **sobjp)
             return;
         } else
             gk.known = TRUE;
-    } else { /* armor and scroll both cursed */
-        pline("%s.", Yobjnam2(otmp, "vibrate"));
-        if (otmp->spe >= -6) {
-            otmp->spe += -1;
-            adj_abon(otmp, -1);
-        }
-        make_stunned((HStun & TIMEOUT) + (long) rn1(10, 10), TRUE);
     }
 }
 
@@ -1614,7 +1669,7 @@ seffect_remove_curse(struct obj **sobjp)
     if (scursed) {
         pline_The("scroll disintegrates.");
     } else {
-        /* 3.7: this used to use a straight
+        /* 5.0: this used to use a straight
                for (obj = invent; obj; obj = obj->nobj) {}
            traversal, but for the confused case, secondary weapon might
            become cursed and be dropped, moving it from the invent chain
@@ -1740,6 +1795,7 @@ seffect_enchant_weapon(struct obj **sobjp)
     boolean scursed = sobj->cursed;
     boolean confused = (Confusion != 0);
     boolean old_erodeproof, new_erodeproof;
+    int s;
 
     /* [What about twoweapon mode?  Proofing/repairing/enchanting both
        would be too powerful, but shouldn't we choose randomly between
@@ -1774,11 +1830,12 @@ seffect_enchant_weapon(struct obj **sobjp)
         uwep->oerodeproof = new_erodeproof ? 1 : 0;
         return;
     }
-    if (!chwepon(sobj, scursed ? -1
-                 : !uwep ? 1
-                 : (uwep->spe >= 9) ? !rn2(uwep->spe)
-                 : sblessed ? rnd(3 - uwep->spe / 3)
-                 : 1))
+    s = scursed ? -1
+        : !uwep ? 1 /* guard further tests against null pointer */
+          : (uwep->spe >= 9) ? (rn2(uwep->spe) == 0) /* usually 0, maybe  1 */
+            : sblessed ? rnd(3 - uwep->spe / 3) /* >= 9 case prevents rnd(0) */
+              : 1; /* uncursed */
+    if (!chwepon(sobj, s))
         *sobjp = 0; /* nothing enchanted: strange_feeling -> useup */
     if (uwep)
         cap_spe(uwep);
@@ -2690,12 +2747,14 @@ set_lit(coordxy x, coordxy y, genericptr_t val)
 void
 litroom(
     boolean on,      /* True: make nearby area lit; False: cursed scroll */
-    struct obj *obj) /* scroll, spellbook (for spell), or wand of light */
+    struct obj *obj) /* scroll, spellbook (for spell), wand of light, or
+                      * arrow of light */
 {
     struct obj *otmp, *nextobj;
     boolean blessed_effect = (obj && obj->oclass == SCROLL_CLASS
                               && obj->blessed);
     boolean no_op = (u.uswallow || Underwater || Is_waterlevel(&u.uz));
+    boolean lightarrow = (obj && obj->otyp == ARROW_OF_LIGHT);
     char is_lit = 0; /* value is irrelevant but assign something anyway; its
                       * address is used as a 'not null' flag for set_lit() */
     int radius = 0;
@@ -2761,7 +2820,7 @@ litroom(
                 pline("%s shines briefly.", Monnam(u.ustuck));
             else
                 pline("%s glistens.", Monnam(u.ustuck));
-        } else if (!Blind) {
+        } else if (!Blind && !lightarrow) {
             pline("A lit field %ssurrounds you!", no_op ? "briefly " : "");
         }
     }
@@ -2798,13 +2857,22 @@ litroom(
             radius = 11;
         }
     }
+    else if (lightarrow) {
+        radius = 3;
+    }
     else {
         radius = 5;
     }
 
     if (radius > 0) {
-        do_clear_area(u.ux, u.uy, radius, set_lit,
-                      (genericptr_t) (on ? &is_lit : (char *) 0));
+        if (lightarrow) {
+            do_clear_area(obj->ox, obj->oy, radius, set_lit,
+                          (genericptr_t) (on ? &is_lit : (char *) 0));
+        }
+        else {
+            do_clear_area(u.ux, u.uy, radius, set_lit,
+                          (genericptr_t) (on ? &is_lit : (char *) 0));
+        }
     }
 
     /*
@@ -3451,7 +3519,7 @@ create_particular_parse(
     d->which = name_to_mon(bufp, &gender_name_var);
     /*
      * With the introduction of male and female monster names
-     * in 3.7, preserve that detail.
+     * in 5.0, preserve that detail.
      *
      * If d->fem is already set to MALE or FEMALE at this juncture, it means
      * one of those terms was explicitly specified.

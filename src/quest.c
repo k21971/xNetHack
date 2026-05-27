@@ -1,4 +1,4 @@
-/* NetHack 3.7	quest.c	$NHDT-Date: 1687036547 2023/06/17 21:15:47 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.38 $ */
+/* NetHack 5.0	quest.c	$NHDT-Date: 1774269965 2026/03/23 04:46:05 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.46 $ */
 /*      Copyright 1991, M. Stephenson             */
 /* NetHack may be freely redistributed.  See license for details. */
 
@@ -17,6 +17,7 @@ staticfn void on_goal(void);
 staticfn boolean not_capable(void);
 staticfn int is_pure(boolean);
 staticfn void expulsion(boolean);
+staticfn boolean qarti_given_at_start(void);
 staticfn boolean arti_fulfills_quest(void);
 staticfn void chat_with_leader(struct monst *);
 staticfn void chat_with_nemesis(void);
@@ -225,12 +226,23 @@ expulsion(boolean seal)
     }
 }
 
+/* Is the quest artifact handed out at the /start/ of the quest?
+ * If so, showing it to the leader is not significant. */
+staticfn boolean
+qarti_given_at_start(void)
+{
+    return (Role_if(PM_RANGER));
+}
+
 /* Does returning to the leader with the quest artifact complete the quest?
  * (Currently, if not, the completion condition is assumed to be killing the
  * nemesis.) */
 staticfn boolean
 arti_fulfills_quest(void)
 {
+    if (qarti_given_at_start()) {
+        return FALSE;
+    }
     if (Role_if(PM_VALKYRIE) || Role_if(PM_MONK)) {
         return FALSE;
     }
@@ -335,7 +347,7 @@ chat_with_leader(struct monst *mtmp)
             qt_pager("posthanks");
 
     /* Rule 3: You've got the artifact and are back to return it. */
-    } else if (u.uhave.questart) {
+    } else if (u.uhave.questart && !qarti_given_at_start()) {
         struct obj *otmp;
 
         for (otmp = gi.invent; otmp; otmp = otmp->nobj)
@@ -393,6 +405,12 @@ chat_with_leader(struct monst *mtmp)
                 qt_pager("banished");
                 Qstat(pissed_off) = TRUE;
                 expulsion(FALSE);
+
+                /* being expelled is hardly an achievement but none of the
+                   other livelog classifications fit */
+                livelog_printf(LL_ACHIEVE,
+                               "%s has expelled you from the quest",
+                               noit_mon_nam(mtmp));
             }
         } else if (purity == 0) {
             qt_pager("badalign");
@@ -403,6 +421,29 @@ chat_with_leader(struct monst *mtmp)
             qt_pager("assignquest");
             exercise(A_WIS, TRUE);
             Qstat(got_quest) = TRUE;
+            if (qarti_given_at_start()) {
+                struct obj *otmp;
+                for (otmp = mtmp->minvent; otmp; otmp = otmp->nobj)
+                    if (is_quest_artifact(otmp))
+                        break;
+                if (otmp) {
+                    extract_from_minvent(mtmp, otmp, TRUE, TRUE);
+                    addinv(otmp); /* this will immediately trigger 'gotit' */
+                }
+                else {
+                    /* leader doesn't have quest artifact? could be stolen from
+                     * them, or they were killed and resurrected */
+                    verbalize("Forgive me, I must have misplaced %s.",
+                              artiname(gu.urole.questarti));
+                }
+            }
+            /* phrasing is a bit clumsy but allows #chronicle to provide a
+               clue to players who are reaching the quest for first time;
+               matters most for Home 1 that has stairs down which aren't
+               easily found */
+            livelog_printf(LL_ACHIEVE,
+                     "%s has granted access to proceed deeper into the quest",
+                           noit_mon_nam(mtmp));
         }
     }
 }
@@ -455,7 +496,7 @@ nemesis_speaks(void)
      * whether this flag is set or not because nemesis_speaks should only get
      * called when nearby anyway. */
     if (!Qstat(in_battle) || covetous_nonwarper(&mons[gu.urole.neminum])) {
-        if (u.uhave.questart)
+        if (u.uhave.questart && !qarti_given_at_start())
             qt_pager("nemesis_wantsit");
         else if (Qstat(made_goal) == 1 || !Qstat(met_nemesis))
             qt_pager("nemesis_first");

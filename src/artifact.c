@@ -1,4 +1,4 @@
-/* NetHack 3.7	artifact.c	$NHDT-Date: 1715889721 2024/05/16 20:02:01 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.236 $ */
+/* NetHack 5.0	artifact.c	$NHDT-Date: 1715889721 2024/05/16 20:02:01 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.236 $ */
 /* Copyright (c) Stichting Mathematisch Centrum, Amsterdam, 1985. */
 /*-Copyright (c) Robert Patrick Rankin, 2013. */
 /* NetHack may be freely redistributed.  See license for details. */
@@ -558,8 +558,10 @@ shade_glare(struct obj *obj)
 {
     const struct artifact *arti;
 
-    /* any silver object is effective; bone too, though it gets no bonus */
-    if (obj->material == SILVER || obj->material == BONE)
+    /* any silver object is effective; bone too, though it gets no bonus;
+     * physically substantial light also can touch them */
+    if (obj->material == SILVER || obj->material == BONE
+        || obj->material == HARD_LIGHT)
         return TRUE;
     /* non-silver artifacts with bonus against undead also are effective */
     arti = get_artifact(obj);
@@ -2089,7 +2091,16 @@ invoke_create_portal(struct obj *obj)
 staticfn int
 invoke_create_ammo(struct obj *obj)
 {
-    struct obj *otmp = mksobj(ARROW, TRUE, FALSE);
+    struct obj *otmp;
+
+    if (sve.extant_arrows_of_light >= MAX_LIGHT_ARROWS
+        || (Role_if(PM_RANGER) && !svq.quest_status.killed_nemesis))
+        otmp = mksobj(Race_if(PM_ELF) ? ELVEN_ARROW
+                                      : Race_if(PM_ORC) ? ORCISH_ARROW
+                                                        : ARROW,
+                      TRUE, FALSE);
+    else
+        otmp = mksobj(ARROW_OF_LIGHT, TRUE, FALSE);
 
     if (!otmp) {
         nothing_special(obj);
@@ -2098,7 +2109,11 @@ invoke_create_ammo(struct obj *obj)
     otmp->blessed = obj->blessed;
     otmp->cursed = obj->cursed;
     otmp->bknown = obj->bknown;
+    otmp->known = obj->known;
+    otmp->rknown = obj->rknown;
     otmp->oeroded = otmp->oeroded2 = 0;
+    if (otmp->otyp != ARROW_OF_LIGHT)
+        otmp->spe = obj->spe;
     if (obj->blessed) {
         if (otmp->spe < 0)
             otmp->spe = 0;
@@ -2108,9 +2123,32 @@ invoke_create_ammo(struct obj *obj)
             otmp->spe = 0;
     } else
         otmp->quan += rnd(5);
+
+    if (otmp->otyp == ARROW_OF_LIGHT) {
+        /* quan rules above are for fallback case of normal arrows,
+         * arrows of light for Rangers always give either 3 or whatever
+         * number ensures the total number in existence don't go beyond
+         * MAX_LIGHT_ARROWS, 1 for non-rangers */
+        if (Role_if(PM_RANGER)) {
+            otmp->quan = min(MAX_LIGHT_ARROWS
+                             - sve.extant_arrows_of_light, 3);
+        }
+        else {
+            otmp->quan = 1;
+        }
+        sve.extant_arrows_of_light += otmp->quan;
+    }
     otmp->owt = weight(otmp);
-    otmp = hold_another_object(otmp, "Suddenly %s out.",
-                               aobjnam(otmp, "fall"), (char *) 0);
+
+    pline("In a %s flash, %s%s!",
+          (Role_if(PM_RANGER) && svq.quest_status.killed_nemesis)
+            ? "twinkling" : "glimmering",
+          otmp->quan == 1L ? "an " : "",
+          aobjnam(otmp, "appear"));
+
+    otmp = hold_another_object(otmp, "But you have to drop %s.",
+                               otmp->quan >= 1L ? "it" : "them",
+                               (char *) 0);
     nhUse(otmp);
     return ECMD_TIME;
 }

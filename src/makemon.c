@@ -1,4 +1,4 @@
-/* NetHack 3.7	makemon.c	$NHDT-Date: 1720128166 2024/07/04 21:22:46 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.249 $ */
+/* NetHack 5.0	makemon.c	$NHDT-Date: 1770949988 2026/02/12 18:33:08 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.271 $ */
 /* Copyright (c) Stichting Mathematisch Centrum, Amsterdam, 1985. */
 /*-Copyright (c) Robert Patrick Rankin, 2012. */
 /* NetHack may be freely redistributed.  See license for details. */
@@ -17,7 +17,6 @@ staticfn int align_shift(struct permonst *);
 staticfn int temperature_shift(struct permonst *);
 staticfn boolean mk_gen_ok(int, unsigned, unsigned);
 staticfn int QSORTCALLBACK cmp_init_mongen_order(const void *, const void *);
-staticfn void check_mongen_order(void);
 staticfn void init_mongen_order(void);
 staticfn boolean wrong_elem_type(struct permonst *);
 staticfn void m_initgrp(struct monst *, coordxy, coordxy, int, mmflags_nht);
@@ -708,6 +707,15 @@ m_initinv(struct monst *mtmp)
                     (void) mongets(mtmp, C_RATION);
                 if (ptr != &mons[PM_SOLDIER] && !rn2(3))
                     (void) mongets(mtmp, BUGLE);
+                if (ptr == &mons[PM_SOLDIER] && !rn2(100)) {
+                    if (!rn2(4) && !(Is_knox(&u.uz) && gi.in_mklev))
+                        (void) mongets(mtmp, LEATHER_DRUM);
+                    else {
+                        otmp = mongets(mtmp, MUNDANE_FLUTE);
+                        if (otmp)
+                            set_material(otmp, rn2(2) ? COPPER : METAL);
+                    }
+                }
             }
         } else if (ptr == &mons[PM_SHOPKEEPER]) {
             (void) mongets(mtmp, SKELETON_KEY);
@@ -749,7 +757,7 @@ m_initinv(struct monst *mtmp)
         break;
     case S_GIANT:
         if (ptr == &mons[PM_MINOTAUR]) {
-            if (!rn2(3) || (gi.in_mklev && Is_earthlevel(&u.uz)))
+            if (!rn2(8) || (gi.in_mklev && Is_earthlevel(&u.uz)))
                 (void) mongets(mtmp, WAN_DIGGING);
         } else if (is_giant(ptr)) {
             for (cnt = rn2((int) (mtmp->m_lev / 2)); cnt; cnt--) {
@@ -1128,6 +1136,13 @@ newmonhp(struct monst *mon, int mndx)
         /* Second half of the "special" fixed hp monster code: adjust level */
         mon->m_lev = mon->mhp / 4; /* approximation */
     }
+    if (deadly_wumpus(mon)) {
+        mon->m_lev *= 2;
+        if (mon->m_lev > 49)
+            mon->m_lev = 49;
+        mon->mhpmax *= 3;
+        mon->mhp = mon->mhpmax;
+    }
 }
 
 static const struct mextra zeromextra = DUMMY;
@@ -1235,7 +1250,8 @@ makemon(
             byyou = u_at(x, y),
             allow_minvent = ((mmflags & NO_MINVENT) == 0),
             countbirth = ((mmflags & MM_NOCOUNTBIRTH) == 0),
-            allowtail = ((mmflags & MM_NOTAIL) == 0);
+            allowtail = ((mmflags & MM_NOTAIL) == 0),
+            noitem = ((mmflags & MM_NOITEM) != 0);
     mmflags_nht gpflags = (((mmflags & MM_IGNOREWATER) ? MM_IGNOREWATER : 0)
                            | GP_CHECKSCARY | GP_AVOID_MONPOS);
 
@@ -1366,13 +1382,18 @@ makemon(
     /* quest leader and nemesis both know about all trap types */
     if (ptr->msound == MS_LEADER || ptr->msound == MS_NEMESIS)
         mon_learns_traps(mtmp, ALL_TRAPS);
+    /* locations where monsters are already experienced with wands */
+    if (Is_stronghold(&u.uz) || Is_knox(&u.uz) || In_endgame(&u.uz) ||
+        In_hell(&u.uz) || In_V_tower(&u.uz) || In_quest(&u.uz))
+        mtmp->mwandexp = TRUE;
 
     place_monster(mtmp, x, y);
     mtmp->mcansee = mtmp->mcanmove = TRUE;
+    mtmp->mgenmklev = gi.in_mklev;
     mtmp->seen_resistance = M_SEEN_NOTHING;
     mtmp->mpeaceful = (mmflags & MM_ANGRY) ? FALSE : peace_minded(ptr);
     if ((mmflags & MM_MINVIS) != 0) /* for ^G */
-        mon_set_minvis(mtmp); /* call after place_monster() */
+        mon_set_minvis(mtmp, FALSE); /* call after place_monster() */
 
     switch (ptr->mlet) {
     case S_MIMIC:
@@ -1413,7 +1434,7 @@ makemon(
         break;
     case S_SPIDER:
     case S_SNAKE:
-        if (gi.in_mklev) {
+        if (!noitem && gi.in_mklev) {
             if (x && y)
                 (void) mkobj_at(RANDOM_CLASS, x, y, TRUE);
             (void) hideunder(mtmp);
@@ -1907,11 +1928,12 @@ cmp_init_mongen_order(const void *p1, const void *p2)
     return difficulty1 - difficulty2;
 }
 
+#if (NH_DEVEL_STATUS != NH_STATUS_RELEASED)
+staticfn void check_mongen_order(void);
 /* check that monsters are in correct difficulty order for mkclass() */
 staticfn void
 check_mongen_order(void)
 {
-#if (NH_DEVEL_STATUS != NH_STATUS_RELEASED)
     int i, diff = 0;
     char mlet = '\0';
     for (i = LOW_PM; i < SPECIAL_PM; i++) {
@@ -1929,8 +1951,8 @@ check_mongen_order(void)
             diff = 0;
         }
     }
-#endif // (NH_DEVEL_STATUS != NH_STATUS_RELEASED)
 }
+#endif
 
 /* initialize monster order for mkclass */
 staticfn void
@@ -1948,9 +1970,13 @@ init_mongen_order(void)
         if ((xint8) (mons[i].geno & G_FREQ) > mclass_maxf[mlet])
             mclass_maxf[mlet] = (xint8) (mons[i].geno & G_FREQ);
     }
+#if (NH_DEVEL_STATUS != NH_STATUS_RELEASED)
     check_mongen_order();
+#endif
     qsort((genericptr_t) mongen_order, SPECIAL_PM, sizeof(int), cmp_init_mongen_order);
+#if (NH_DEVEL_STATUS != NH_STATUS_RELEASED)
     check_mongen_order();
+#endif
 }
 
 #define MONSi(i) (mongen_order[i])

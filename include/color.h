@@ -1,4 +1,4 @@
-/* NetHack 3.7	color.h	$NHDT-Date: 1682205020 2023/04/22 23:10:20 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.18 $ */
+/* NetHack 5.0	color.h	$NHDT-Date: 1682205020 2023/04/22 23:10:20 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.18 $ */
 /* Copyright (c) Steve Linhart, Eric Raymond, 1989. */
 /* NetHack may be freely redistributed.  See license for details. */
 
@@ -41,7 +41,7 @@
 /* these can be configured */
 #define HI_OBJ CLR_MAGENTA
 #define HI_METAL CLR_CYAN
-#define HI_COPPER CLR_YELLOW
+#define HI_COPPER CLR_ORANGE
 #define HI_SILVER CLR_GRAY
 #define HI_GOLD CLR_YELLOW
 #define HI_LEATHER CLR_BROWN
@@ -53,6 +53,7 @@
 #define HI_MINERAL CLR_GRAY
 #define DRAGON_SILVER CLR_BRIGHT_CYAN
 #define HI_ZAP CLR_BRIGHT_BLUE
+#define HI_BRASS CLR_YELLOW /* item made of copper, but shows as yellow */
 
 /* For monstercolors: special value that indicates a monstercolor isn't
  * configured for a given monster and it should use the default */
@@ -69,13 +70,14 @@ struct nethack_color {
     int tableindex;
     int rgbindex;
     const char *name;
-    const char *hexval;
     long r, g, b;
 };
 
 typedef struct color_and_attr {
            int color, attr;
 } color_attr;
+
+extern const struct nethack_color colortable[];
 
 #endif /* COLOR_H */
 

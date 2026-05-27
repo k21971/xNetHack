@@ -1,4 +1,4 @@
-/* NetHack 3.7	detect.c	$NHDT-Date: 1763708572 2025/11/20 23:02:52 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.191 $ */
+/* NetHack 5.0	detect.c	$NHDT-Date: 1763708572 2025/11/20 23:02:52 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.191 $ */
 /* Copyright (c) Stichting Mathematisch Centrum, Amsterdam, 1985. */
 /*-Copyright (c) Robert Patrick Rankin, 2018. */
 /* NetHack may be freely redistributed.  See license for details. */
@@ -2065,7 +2065,9 @@ dosearch0(int aflag) /* intrinsic autosearch vs explicit searching */
                     if (!aflag && !mtmp && !Blind)
                         (void) unmap_invisible(x, y);
 
-                    if ((trap = t_at(x, y)) && !trap->tseen && !rnl(8)) {
+                    if ((trap = t_at(x, y)) && !trap->tseen
+                        && (Role_if(PM_RANGER) && is_pit(trap->ttyp)
+                            ? !rnl(2) : !rnl(8))) {
                         nomul(0);
                         if (trap->ttyp == STATUE_TRAP) {
                             if (activate_statue_trap(trap, x, y, FALSE))
@@ -2295,7 +2297,7 @@ dump_map(void)
     unsigned subset = TER_MAP | TER_TRP | TER_OBJ | TER_MON;
     /* cmap_to_glyph() evaluates its argument multiple times, so pull the
        tree vs stone conditional out of it */
-    nhsym default_sym = svl.level.flags.arboreal ? S_tree : S_stone;
+    nhsym default_sym = S_stone;
     int default_glyph = cmap_to_glyph(default_sym);
 
     /*
@@ -2364,7 +2366,7 @@ reveal_terrain(
             keep_mons = (which_subset & TER_MON) != 0, /* not used */
             do_visited = (which_subset & TER_VISIT) != 0;
     unsigned swallowed = u.uswallow; /* before unconstrain_map() */
-    nhsym default_sym = svl.level.flags.arboreal ? S_tree : S_stone;
+    nhsym default_sym = S_stone;
     /* 'full' implies no-traps, no-objs, no-mons */
     boolean full = (which_subset & TER_FULL) != 0; /* show whole map */
 

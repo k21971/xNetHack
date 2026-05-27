@@ -1,4 +1,4 @@
-/* NetHack 3.7	mkobj.c	$NHDT-Date: 1764044196 2025/11/24 20:16:36 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.326 $ */
+/* NetHack 5.0	mkobj.c	$NHDT-Date: 1764044196 2025/11/24 20:16:36 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.326 $ */
 /* Copyright (c) Stichting Mathematisch Centrum, Amsterdam, 1985. */
 /*-Copyright (c) Derek S. Ray, 2015. */
 /* NetHack may be freely redistributed.  See license for details. */
@@ -38,10 +38,10 @@ struct icp {
 };
 
 static const struct icp mkobjprobs[] = { { 10, WEAPON_CLASS },
-                                         { 10, ARMOR_CLASS },
+                                         { 11, ARMOR_CLASS },
                                          { 20, FOOD_CLASS },
                                          { 8, TOOL_CLASS },
-                                         { 8, GEM_CLASS },
+                                         { 7, GEM_CLASS },
                                          { 16, POTION_CLASS },
                                          { 16, SCROLL_CLASS },
                                          { 4, SPBOOK_CLASS },
@@ -314,9 +314,13 @@ mkbox_cnts(struct obj *box)
         break;
     case CHEST:
         n = box->olocked ? 7 : 5;
+        if (box->material == GLASS)
+            n += 2;
         break;
     case LARGE_BOX:
         n = box->olocked ? 5 : 3;
+        if (box->material == GLASS)
+            n += 2;
         break;
     case SACK:
     case OILSKIN_SACK:
@@ -1081,7 +1085,7 @@ mksobj_init(struct obj **obj, boolean artif)
             /* for emphasis; glob quantity is always 1 and weight varies
                when other globs coalesce with it or this one shrinks */
             otmp->quan = 1L;
-            /* 3.7: globs in 3.6.x left owt as 0 and let weight() fix
+            /* 5.0: globs in 3.6.x left owt as 0 and let weight() fix
                that up during 'obj->owt = weight(obj)' below, but now
                we initialize glob->owt explicitly so weight() doesn't
                need to perform any fix up and returns glob->owt as-is */
@@ -1136,6 +1140,10 @@ mksobj_init(struct obj **obj, boolean artif)
         case CHEST:
         case LARGE_BOX:
             otmp->olocked = !!(rn2(5));
+            if (otmp->material == MINERAL)
+                otmp->olocked = 0;
+            else if (otmp->material == GLASS)
+                otmp->olocked = 1;
             otmp->otrapped = !(rn2(10));
             otmp->tknown = otmp->otrapped && !rn2(100); /* obvious trap */
             FALLTHROUGH;
@@ -1241,6 +1249,10 @@ mksobj_init(struct obj **obj, boolean artif)
     case WAND_CLASS:
         if (otmp->otyp == WAN_WISHING)
             otmp->spe = 1;
+        else if (otmp->otyp == WAN_STASIS)
+            /* just as easy to recharge as other NODIR wands, but starts with
+               fewer charges */
+            otmp->spe = rn1(4, 3);
         else
             otmp->spe = rn1(5,
                             (objects[otmp->otyp].oc_dir == NODIR) ? 11 : 4);
@@ -2082,7 +2094,7 @@ set_bknown(
  * overpowered by weighing about one-tenth as much as the iron counterpart.
  * Instead, use arbitrary units. */
 static
-const int matdensities[] = {
+const int matdensities[NUM_MATERIAL_TYPES] = {
     0,   // will cause div/0 errors if anything is this material
     10,  // LIQUID
     15,  // WAX
@@ -2104,7 +2116,8 @@ const int matdensities[] = {
     20,  // PLASTIC
     60,  // GLASS
     55,  // GEMSTONE
-    70   // MINERAL
+    70,  // MINERAL
+     5,  // HARD_LIGHT
 };
 
 /*
@@ -2134,7 +2147,7 @@ weight(struct obj *obj)
        manage glob->owt and there is nothing for weight() to do except
        return the current value as-is */
     if (obj->globby) {
-        /* 3.7: in 3.6.x this checked for owt==0 and then used
+        /* 5.0: in 3.6.x this checked for owt==0 and then used
            owt as-is when non-zero or objects[].oc_weight if zero;
            we don't do that anymore because it confused calculating
            the weight of a container when a glob inside shrank down
@@ -2205,7 +2218,7 @@ weight(struct obj *obj)
     } else if (obj->oclass == FOOD_CLASS && obj->oeaten) {
         return eaten_stat((int) obj->quan * wt, obj);
     } else if (obj->oclass == COIN_CLASS) {
-        /* 3.7: always weigh at least 1 unit; used to yield 0 for 1..49 */
+        /* 5.0: always weigh at least 1 unit; used to yield 0 for 1..49 */
         wt = (int) ((obj->quan + 50L) / 100L);
         return max(wt, 1);
     } else if (obj->otyp == HEAVY_IRON_BALL && obj->owt != 0) {
@@ -2223,7 +2236,7 @@ weight(struct obj *obj)
  * adjusted up so that there are no negatives.
  * The units involved here are AC points (but again, only the difference
  * matters.) */
-const int matac[] = {
+const int matac[NUM_MATERIAL_TYPES] = {
      0,
      0,  // LIQUID
      1,  // WAX
@@ -2245,7 +2258,8 @@ const int matac[] = {
      3,  // PLASTIC
      5,  // GLASS
      7,  // GEMSTONE
-     6   // MINERAL
+     6,  // MINERAL
+     6,  // HARD_LIGHT
 };
 
 /* Compute the bonus or penalty to AC an armor piece should get for being a
@@ -3198,6 +3212,7 @@ hornoplenty(
         pline("%s %s out.", what, vtense(what, "spill"));
         obj->blessed = horn->blessed;
         obj->cursed = horn->cursed;
+        obj->bknown = horn->bknown;
         obj->owt = weight(obj);
         /* using a shop's horn of plenty entails a usage fee and also
            confers ownership of the created item to the shopkeeper */
@@ -4294,8 +4309,9 @@ init_thiefstone(struct obj *stone)
 /* Object material probabilities. */
 /* for objects which are normally iron or metal */
 static const struct icp metal_materials[] = {
-    {75, 0}, /* default to base type, iron or metal */
+    {69, 0}, /* default to base type, iron or metal */
     { 6, IRON},
+    { 6, METAL},
     { 6, WOOD},
     { 5, COPPER},
     { 2, SILVER},
@@ -4310,9 +4326,11 @@ static const struct icp metal_materials[] = {
 /* for objects which are normally wooden */
 static const struct icp wood_materials[] = {
     {80, WOOD},
-    {10, MINERAL},
+    { 5, MINERAL},
     { 5, IRON},
     { 3, BONE},
+    { 3, GLASS},
+    { 2, METAL},
     { 1, COPPER},
     { 0, GOLD}, /* can exist in certain special levels but not randomly
                  * generated */
@@ -4364,8 +4382,8 @@ static const struct icp elven_materials[] = {
     { 2, GOLD}
 };
 
-/* Reflectable items - for the shield of reflection; anything that can hold a
- * polish. Amulets also arbitrarily use this list. */
+/* Reflectable items - for the shield of reflection and amulet of reflection;
+ * anything that can hold a polish. */
 static const struct icp shiny_materials[] = {
     {30, SILVER},
     {22, COPPER},
@@ -4380,10 +4398,11 @@ static const struct icp shiny_materials[] = {
 /* for bells and other tools, especially instruments, which are normally copper
  * or metal.  Wood and glass in other lists precludes us from using those. */
 static const struct icp resonant_materials[] = {
-    {55, 0}, /* use base material */
+    {50, 0}, /* use base material */
     {25, COPPER},
     { 6, SILVER},
     { 5, IRON},
+    { 5, METAL},
     { 5, MITHRIL},
     { 3, GOLD},
     { 1, PLATINUM}
@@ -4398,6 +4417,25 @@ static const struct icp horn_materials[] = {
     { 5, SILVER},
     { 2, GOLD}
 };
+
+/* for amulets: bears a lot of similarity to shiny_materials, which they
+ * previously used, but is a bit more flexible.
+ * Note: the amulet of reflection still uses shiny_materials. */
+static const struct icp amulet_materials[] = {
+    {10, SILVER},
+    {10, COPPER},
+    {10, GOLD},
+    {10, IRON}, /* default material for all amulets */
+    {10, GLASS},
+    {10, MITHRIL},
+    {10, METAL}, /* aluminum, or similar */
+    {10, WOOD},
+    { 5, GEMSTONE},
+    { 5, MINERAL},
+    { 5, BONE},
+    { 5, PLATINUM}
+};
+
 
 /* hacks for specific objects... not great because it's a lot of data, but it's
  * a relatively clean solution */
@@ -4513,8 +4551,10 @@ material_list(struct obj* obj)
         return crude_materials;
     }
     else if (obj->oclass == AMULET_CLASS) {
-        /* could use metal_materials too */
-        return shiny_materials;
+        if (obj->otyp == AMULET_OF_REFLECTION)
+            return shiny_materials;
+        else
+            return amulet_materials;
     }
     else if (obj->oclass == WEAPON_CLASS || obj->oclass == ARMOR_CLASS
              || obj->oclass == TOOL_CLASS) {
@@ -4598,6 +4638,16 @@ nonsensical_obj_material(struct obj *obj, uchar mat)
 
     /* elven gear that somehow generates as iron... */
     if (is_elven_obj(obj) && mat == IRON) {
+        return TRUE;
+    }
+
+    /* a large, sealed container made out of bones... */
+    if (mat == BONE && Is_box(obj)) {
+        return TRUE;
+    }
+
+    /* a launcher made out of a brittle material... */
+    if ((mat == GLASS || mat == MINERAL) && is_launcher(obj)) {
         return TRUE;
     }
 

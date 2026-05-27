@@ -1,4 +1,4 @@
-/* NetHack 3.7	mkmaze.c	$NHDT-Date: 1745114235 2025/04/19 17:57:15 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.179 $ */
+/* NetHack 5.0	mkmaze.c	$NHDT-Date: 1745114235 2025/04/19 17:57:15 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.179 $ */
 /* Copyright (c) Stichting Mathematisch Centrum, Amsterdam, 1985. */
 /*-Copyright (c) Pasi Kallinen, 2018. */
 /* NetHack may be freely redistributed.  See license for details. */
@@ -109,6 +109,13 @@ set_levltyp(coordxy x, coordxy y, schar newtyp)
             if ((IS_FOUNTAIN(oldtyp) != IS_FOUNTAIN(newtyp))
                 || (IS_SINK(oldtyp) != IS_SINK(newtyp)))
                 count_level_features(); /* level.flags.nfountains,nsinks */
+
+            if (svl.level.flags.arboreal) {
+                if (IS_TREE(oldtyp))
+                    levl[x][y].looted = 0;
+                if (IS_TREE(newtyp))
+                    levl[x][y].looted = (TREE_LOOTED | TREE_SWARM);
+            }
 
             return TRUE;
         }
@@ -1293,8 +1300,9 @@ get_level_extends(
     *bottom = ymax;
 }
 
-/* put a non-diggable boundary around the initial portion of a level map.
- * assumes that no level will initially put things beyond the isok() range.
+/* put a non-diggable/non-phaseable boundary around the initial portion
+ * of a level map. assumes that no level will initially put things
+ * beyond the isok() range.
  *
  * we can't bound unconditionally on the last line with something in it,
  * because that something might be a niche which was already reachable,
@@ -1316,9 +1324,14 @@ bound_digging(void)
 
     for (x = 0; x < COLNO; x++)
         for (y = 0; y < ROWNO; y++)
-            if (IS_STWALL(levl[x][y].typ)
-                && (y <= ymin || y >= ymax || x <= xmin || x >= xmax))
-                levl[x][y].wall_info |= W_NONDIGGABLE;
+            if (IS_STWALL(levl[x][y].typ)) {
+                /* undiggable walls at edges, ... */
+                if (y <= ymin || y >= ymax || x <= xmin || x >= xmax)
+                    levl[x][y].wall_info |= W_NONDIGGABLE;
+                /* one tile past that, everything is also unphaseable */
+                if (y < ymin || y > ymax || x < xmin || x > xmax)
+                    levl[x][y].wall_info |= W_NONPASSWALL;
+            }
 }
 
 /* Creates a magic portal at the given location, pointing to the given dungeon

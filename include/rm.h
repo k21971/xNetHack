@@ -1,4 +1,4 @@
-/* NetHack 3.7	rm.h	$NHDT-Date: 1745114235 2025/04/19 17:57:15 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.120 $ */
+/* NetHack 5.0	rm.h	$NHDT-Date: 1745114235 2025/04/19 17:57:15 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.120 $ */
 /* Copyright (c) Stichting Mathematisch Centrum, Amsterdam, 1985. */
 /*-Copyright (c) Pasi Kallinen, 2017. */
 /* NetHack may be freely redistributed.  See license for details. */
@@ -94,7 +94,20 @@ enum levl_typ_types {
     CLOUD     = 38,
 
     MAX_TYPE  = 39,
+    /* for special levels */
     MATCH_WALL = 40,
+
+    /* these aren't levl[][].typ values, they're additional indices
+       into terrain_descr[] for status feedback */
+    xFLOOR     = 41,
+    xGROUND    = 42,
+    xOPENDOOR  = 43,
+    xSHUTDOOR  = 44,
+    xSWAMP     = 45,
+    xSUBMERGED = 46,
+    xSEA       = 47,
+    xWATERWALL = 48,
+
     INVALID_TYPE = 127
 };
 
@@ -109,8 +122,7 @@ enum levl_typ_types {
 #define IS_SDOOR(typ) ((typ) == SDOOR)
 #define IS_DOOR(typ) ((typ) == DOOR)
 #define IS_DOORJOIN(typ) (IS_OBSTRUCTED(typ) || (typ) == IRONBARS)
-#define IS_TREE(typ)                                            \
-    ((typ) == TREE || (svl.level.flags.arboreal && (typ) == STONE))
+#define IS_TREE(typ) ((typ) == TREE)
 #define ACCESSIBLE(typ) ((typ) >= DOOR) /* good position */
 #define IS_ROOM(typ) ((typ) >= ROOM)    /* ROOM, STAIRS, furniture.. */
 #define ZAP_POS(typ) ((typ) >= POOL)
@@ -479,7 +491,9 @@ struct levelflags {
     Bitfield(sokoban_rules, 1); /* fill pits and holes w/ boulders */
     Bitfield(is_maze_lev, 1);
     Bitfield(is_cavernous_lev, 1);
-    Bitfield(arboreal, 1);     /* Trees replace rock */
+    Bitfield(arboreal, 1);     /* level has many trees; generate them looted
+                                * to avoid the player getting lots of goodies by
+                                * kicking them */
     Bitfield(has_town, 1);     /* level contains a town */
     Bitfield(wizard_bones, 1); /* set if level came from a bones file
                                   which was created in wizard mode (or
@@ -499,6 +513,7 @@ struct levelflags {
 
     /* 4 free bits */
     schar temperature;         /* +1 == hot, -1 == cold */
+    long stasis_until;         /* wand of stasis effect lasts until when? */
 };
 
 /* values for nommap, which is a slightly awkward name since it is no longer a

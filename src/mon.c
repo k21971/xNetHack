@@ -1,4 +1,4 @@
-/* NetHack 3.7	mon.c	$NHDT-Date: 1753856387 2025/07/29 22:19:47 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.611 $ */
+/* NetHack 5.0	mon.c	$NHDT-Date: 1770949988 2026/02/12 18:33:08 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.621 $ */
 /* Copyright (c) Stichting Mathematisch Centrum, Amsterdam, 1985. */
 /*-Copyright (c) Derek S. Ray, 2015. */
 /* NetHack may be freely redistributed.  See license for details. */
@@ -6,6 +6,7 @@
 #include "hack.h"
 #include "mfndpos.h"
 
+staticfn void pet_sanity_check(struct monst *, const char *);
 staticfn void sanity_check_single_mon(struct monst *, boolean, const char *);
 staticfn struct obj *make_corpse(struct monst *, unsigned);
 staticfn int minliquid_core(struct monst *);
@@ -46,15 +47,28 @@ extern const struct shclass shtypes[]; /* defined in shknam.c */
     (!svl.level.flags.deathdrops    \
      || (svl.level.flags.graveyard && is_undead(mdat) && rn2(3)))
 
-
-#if 0
+#if 0   /* potentially of historical interest */
 /* part of the original warning code which was replaced in 3.3.1 */
 const char *warnings[] = {
     "white", "pink", "red", "ruby", "purple", "black"
 };
 #endif /* 0 */
 
-extern const int monstr[];
+staticfn void
+pet_sanity_check(
+    struct monst *mtmp,
+    const char *msgarg)
+{
+    if (has_edog(mtmp)) {
+        struct edog *edog = EDOG(mtmp);
+
+        if (edog->droptime > svm.moves)
+            impossible("insane pet #%u has droptime (%ld)"
+                       " in the future (%ld) (%s)",
+                       mtmp->m_id, edog->droptime, svm.moves, msgarg);
+        /* TODO: verify some of the other edog fields */
+    }
+}
 
 staticfn void
 sanity_check_single_mon(
@@ -118,8 +132,12 @@ sanity_check_single_mon(
     if (mtmp->isminion && !has_emin(mtmp))
         impossible("minion without emin (%s)", msg);
     /* guardian angel on astral level is tame but has emin rather than edog */
-    if (mtmp->mtame && !has_edog(mtmp) && !mtmp->isminion)
-        impossible("pet without edog (%s)", msg);
+    if (mtmp->mtame) {
+        if (!has_edog(mtmp) && !mtmp->isminion)
+            impossible("pet without edog (%s)", msg);
+        else
+            pet_sanity_check(mtmp, msg);
+    }
     /* steed should be tame and saddled */
     if (mtmp == u.usteed) {
         const char *ns, *nt = !mtmp->mtame ? "not tame" : 0;
@@ -135,7 +153,7 @@ sanity_check_single_mon(
 
     if (mtmp->mtrapped) {
         if (mtmp->wormno) {
-            /* TODO: how to check worm in trap? */
+            ; /* TODO: how to check worm in trap? */
         } else if (!t_at(mx, my))
             impossible("trapped without a trap (%s)", msg);
     }
@@ -842,7 +860,7 @@ make_corpse(struct monst *mtmp, unsigned int corpseflags)
 
     case PM_ROCK_MOLE: case PM_WOODCHUCK:
     case PM_CAVE_SPIDER: case PM_CENTIPEDE: case PM_GIANT_SPIDER:
-    case PM_SCORPION:
+    case PM_SCORPION: case PM_GIANT_SCORPION:
     case PM_LURKER_ABOVE: case PM_TRAPPER:
     case PM_PONY: case PM_HORSE: case PM_WARHORSE:
     case PM_FOG_CLOUD: case PM_DUST_VORTEX: case PM_ICE_VORTEX:
@@ -944,7 +962,7 @@ make_corpse(struct monst *mtmp, unsigned int corpseflags)
 
     case PM_LORD_CARNARVON: case PM_PELIAS: case PM_SHAMAN_KARNOV:
     case PM_HIPPOCRATES: case PM_KING_ARTHUR: case PM_CHAN_SUNE_LAMA:
-    case PM_ARCH_PRIEST: case PM_ORION: case PM_MASTER_OF_THIEVES:
+    case PM_ARCH_PRIEST: case PM_CEDALION: case PM_MASTER_OF_THIEVES:
     case PM_LORD_SATO: case PM_TWOFLOWER: case PM_NORN:
     case PM_NEFERET_THE_GREEN: case PM_SCHLIEMANN:
     case PM_THOTH_AMON: case PM_TIAMAT: case PM_CYCLOPS:
@@ -1211,7 +1229,7 @@ mcalcmove(
     if (mon->mspeed == MSLOW) {
         /* slow-monster effects work better against faster monsters: they
            lose 1/3 of their speed below 12 but 2/3 of their speed above */
-        if (mmove < 12)
+        if (mmove < NORMAL_SPEED)
             mmove = (2 * mmove + 1) / 3;
         else
             mmove = 4 + (mmove / 3);
@@ -1231,6 +1249,10 @@ mcalcmove(
         if (adj < 0)
             adj = 0;
         mmove += adj;
+    }
+    if (deadly_wumpus(mon)) {
+        /* ordinary wumpus speed is 3, which is not threatening. */
+        mmove = 30;
     }
 
     if (m_moving) {
@@ -1974,7 +1996,10 @@ mon_give_prop(struct monst *mtmp, int prop)
         return; /* can't give it */
         break;
     }
-    intrinsic = res_to_mr(prop);
+    /* res_to_mr only handles resistances; res_to_mr(TELEPAT) returns 0, so
+     * avoid it for telepathy */
+    if (intrinsic != MR2_TELEPATHY)
+        intrinsic = res_to_mr(prop);
 
     /* Don't give message if it already had this property intrinsically, but
        still do grant the intrinsic if it only had it from mresists.
@@ -2023,7 +2048,7 @@ mon_givit(struct monst *mtmp, struct permonst *ptr)
             char mtmpbuf[BUFSZ];
 
             Strcpy(mtmpbuf, Monnam(mtmp));
-            mon_set_minvis(mtmp);
+            mon_set_minvis(mtmp, FALSE);
             if (vis)
                 pline_mon(mtmp, "%s %s.", mtmpbuf,
                       !canspotmon(mtmp) ? "vanishes"
@@ -2388,8 +2413,6 @@ mfndpos(
     wantpool = (mdat->mlet == S_EEL);
     poolok = ((!Is_waterlevel(&u.uz) && m_in_air(mon))
               || (is_swimmer(mdat) && !wantpool));
-    /* note: floating eye is the only is_floater() so this could be
-       simplified, but then adding another floater would be error prone */
     lavaok = (m_in_air(mon) || likes_lava(mdat));
     if (mdat == &mons[PM_FLOATING_EYE]) /* prefers to avoid heat */
         lavaok = FALSE;
@@ -2668,10 +2691,13 @@ mm_2way_aggression(struct monst *magr, struct monst *mdef)
        Also don't include unique monsters in this, otherwise it leads to
        them waking up early (e.g. because a zombie decided to attack the
        Wizard of Yendor). */
-    if (zombie_maker(magr) && zombie_form(md) != NON_PM)
+    if (zombie_maker(magr) && zombie_form(mdef->data) != NON_PM) {
+        if (magr->mgenmklev && mdef->mgenmklev)
+            return 0L;
         if (!Is_stronghold(&u.uz)
             && !unique_corpstat(magr->data) && !unique_corpstat(mdef->data))
             return (ALLOW_M | ALLOW_TM);
+    }
 
     /* hobbits vs Nazguls */
     if (ma == &mons[PM_HOBBIT] && md == &mons[PM_NAZGUL])
@@ -2742,6 +2768,12 @@ mm_aggression(
     if (ma == &mons[PM_LEPRECHAUN]
         && (md == &mons[PM_GOLD_GOLEM] || md == &mons[PM_GOLD_DRAGON]
             || md == &mons[PM_BABY_GOLD_DRAGON]))
+        return ALLOW_M|ALLOW_TM;
+
+    /* large dogs vs Scorpius;
+     * enables player to rescue Sirius on the Ranger quest and have him avenge
+     * Orion */
+    if (ma == &mons[PM_LARGE_DOG] && md == &mons[PM_SCORPIUS])
         return ALLOW_M|ALLOW_TM;
 
     /* now test all two-way aggressions both ways */
@@ -3060,20 +3092,6 @@ mon_leaving_level(struct monst *mon)
 #endif
     }
     if (onmap) {
-        /* gulpmm() tries to deal with this, but without this extra
-           place_monster() the messages for exploding engulfed gas spore
-           are delivered without the engulfer being shown on the map */
-        if (gm.mswallower && gm.mswallower != mon) {
-            if (gm.mswallower != &gy.youmonst) {
-                place_monster(gm.mswallower,
-                              gm.mswallower->mx, gm.mswallower->my);
-            } else {
-                u_on_newpos(u.ux, u.uy);
-                if (canspotself())
-                    display_self();
-            }
-        }
-
         mon->mundetected = 0; /* for migration; doesn't matter for death */
         /* unhide mimic in case its shape has been blocking line of sight
            or it is accompanying the hero to another level */
@@ -3901,6 +3919,7 @@ unstuck(struct monst *mtmp)
         set_ustuck((struct monst *) 0);
 
         if (swallowed) {
+            gm.mswallower = (struct monst *) 0;
             u.ux = mtmp->mx;
             u.uy = mtmp->my;
             if (Punished && uchain->where != OBJ_FLOOR)
@@ -3950,10 +3969,10 @@ xkilled(
     iflags.sad_feeling = FALSE;
 
     mtmp->mhp = 0; /* caller will usually have already done this */
-    if (!noconduct) /* KMH, conduct */
+    if (!noconduct) { /* KMH, conduct */
         if (!u.uconduct.killer++)
             livelog_printf(LL_CONDUCT, "killed for the first time");
-
+    }
     if (!nomsg) {
         boolean namedpet = has_mgivenname(mtmp) && !Hallucination;
 
@@ -5460,8 +5479,10 @@ decide_to_shapeshift(struct monst *mon)
 
     if (!is_vampshifter(mon)) {
         /* regular shapeshifter; 'ptr' is Null */
-        if (!rn2(6))
+        if (!mon->mspec_used && !rn2(6)) {
             dochng = TRUE;
+            mon->mspec_used = 3 + rn2(10);
+        }
     } else if (!(mon->mstrategy & STRAT_WAITFORU)) {
         /* The vampire has to be in good health (mhp) to maintain
          * its shifted form.
@@ -6716,5 +6737,31 @@ mon_aireffects(struct monst *mtmp)
                             (coord *) 0);
     }
 }
+
+boolean
+deadly_wumpus(struct monst *mtmp)
+{
+    /* Track the id of the wumpus so that any subsequent ones created on the
+     * Ranger locate level are ordinary. */
+    static unsigned wumpus_mid = 0; /* reserved and unused ident */
+
+    if (wumpus_mid != 0)
+        return (mtmp->m_id == wumpus_mid);
+
+    if (mtmp->data == &mons[PM_WUMPUS] && Role_if(PM_RANGER)
+        && Is_qlocate(&u.uz)) {
+        wumpus_mid = mtmp->m_id;
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
+/* cleanup for 'onefile' processing */
+#undef LEVEL_SPECIFIC_NOCORPSE
+#undef KEEPTRAITS
+#undef mstoning
+#undef livelog_mon_nam
+#undef BREEDER_EGG
 
 /*mon.c*/

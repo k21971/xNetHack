@@ -1,4 +1,4 @@
-/* NetHack 3.7  artilist.h      $NHDT-Date: 1710957374 2024/03/20 17:56:14 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.30 $ */
+/* NetHack 5.0  artilist.h      $NHDT-Date: 1710957374 2024/03/20 17:56:14 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.30 $ */
 /* Copyright (c) Stichting Mathematisch Centrum, Amsterdam, 1985. */
 /*-Copyright (c) Robert Patrick Rankin, 2017. */
 /* NetHack may be freely redistributed.  See license for details. */
@@ -295,10 +295,10 @@ static NEARDATA struct artifact artilist[] = {
       0, 12, 2000L, NO_COLOR, SILVER, MITRE_OF_HOLINESS),
      */
 
-    A("The Longbow of Diana", BOW,
+    A("The Longbow of Orion", BOW,
       (SPFX_NOGEN | SPFX_RESTR | SPFX_INTEL | SPFX_REFLECT), SPFX_ESP, 0,
       PHYS(5, 0), NO_DFNS, NO_CARY, CREATE_AMMO, A_CHAOTIC, PM_RANGER, NON_PM,
-      0, 12, 4000L, NO_COLOR, DEFAULT_MAT, LONGBOW_OF_DIANA),
+      0, 12, 4000L, NO_COLOR, DEFAULT_MAT, LONGBOW_OF_ORION),
 
     /* MKoT has an additional carry property if the Key is not cursed (for
        rogues) or blessed (for non-rogues):  #untrap of doors and chests
